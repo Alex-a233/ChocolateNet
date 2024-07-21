@@ -1,13 +1,8 @@
-import argparse
-import datetime
 import os
-import time
 
 import numpy as np
-import torch
 import torch.nn.functional as F
 
-from model import ChocolateNet
 from utils.dataloader import TestSet
 
 
@@ -50,8 +45,7 @@ def choose_best(model, args):
     sum_dice = 0.0
     eps = 1e-8
 
-    # for dataset in ['CVC-300', 'CVC-ClinicDB', 'CVC-ColonDB', 'ETIS-LaribPolypDB', 'Kvasir']:  # 'BKAI-IGH-NEOPOLYP',
-    for dataset in ['BKAI-IGH-NEOPOLYP']:
+    for dataset in ['CVC-300', 'CVC-ClinicDB', 'CVC-ColonDB', 'ETIS-LaribPolypDB', 'Kvasir']:  # 'BKAI-IGH-NEOPOLYP',
         image_path = os.path.join(eval_path, dataset, 'images/')
         mask_path = os.path.join(eval_path, dataset, 'masks/')
         image_list = [f for f in os.listdir(image_path) if f.endswith('.png')]
@@ -89,14 +83,13 @@ if __name__ == '__main__':
     # print_save('hhhh', './save_dir/', 'test1.txt')
 
     'test function `choose_best`'
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--eval_path', default='../dataset/testset')
-    parser.add_argument('--eval_size', default=352)
-    args = parser.parse_args()
-    model = ChocolateNet().cuda()
-    model.load_state_dict(torch.load('../snapshot/ChocolateNet54.pth'))
-    mdice = choose_best(model, args)
-    print(mdice)
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--eval_path', default='../dataset/testset')
+    # parser.add_argument('--eval_size', default=352)
+    # args = parser.parse_args()
+    # model = ChocolateNet().cuda()
+    # mdice = choose_best(model, args)
+    # print(mdice)
 
     'test function `calculate_time_loss`'
     # start = datetime.datetime.now()

@@ -12,8 +12,7 @@ class ChocolateNet(nn.Module):
         super(ChocolateNet, self).__init__()
         # backbone pvt_v2_b2
         self.backbone = PvtV2B2()
-        # state_dict = torch.load('./pretrained_args/pvt_v2_b2.pth')
-        state_dict = torch.load('../pretrained_args/pvt_v2_b2.pth')
+        state_dict = torch.load('./pretrained_args/pvt_v2_b2.pth')
         model_state_dict = self.backbone.state_dict()
         state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict.keys()}
         model_state_dict.update(state_dict)
