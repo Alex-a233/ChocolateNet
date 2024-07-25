@@ -36,7 +36,7 @@ class BoundaryAttention(nn.Module):
         self.rfb2 = RFBBlock(128, 64)
         self.rfb3 = RFBBlock(320, 64)
         self.rfb4 = RFBBlock(512, 64)
-        self.agg = CFBlock(64)
+        self.cfb = CFBlock(64)
         self.ra2 = ReverseAttention(128, 64, depth=2)
         self.ra3 = ReverseAttention(320, 64, depth=2)
         self.ra4 = ReverseAttention(512, 64, depth=3, kernel_size=5, padding=2)
@@ -46,16 +46,16 @@ class BoundaryAttention(nn.Module):
 
     def forward(self, x2, x3, x4):
         # deal with x2,3,4 with receptive field block
-        rx2 = self.rfb2(x2)
-        rx3 = self.rfb3(x3)
-        rx4 = self.rfb4(x4)
-        # aggregate 3 rxs
-        fm = self.agg(rx4, rx3, rx2)
+        rfb_x2 = self.rfb2(x2)
+        rfb_x3 = self.rfb3(x3)
+        rfb_x4 = self.rfb4(x4)
+        # cascade aggregate 3 rfb_res, get cfb_res
+        cfb_res = self.cfb(rfb_x4, rfb_x3, rfb_x2)
         # deal with x2,3,4
-        ra4_fm = self.ra4(x4, fm)  # TODO: 这种返回是不是不对劲？
-        ra3_fm = self.ra3(x3, ra4_fm)
-        ra2_fm = self.ra2(x2, ra3_fm)
-        return ra4_fm, ra3_fm, ra2_fm
+        ra4_res = self.ra4(x4, cfb_res)
+        ra3_res = self.ra3(x3, ra4_res)
+        ra2_res = self.ra2(x2, ra3_res)
+        return ra4_res, ra3_res, ra2_res
 
 
 class ChannelAttention(nn.Module):

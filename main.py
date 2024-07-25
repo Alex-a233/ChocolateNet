@@ -4,8 +4,11 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import datetime
 import os
+import time
 
 import cv2
+import numpy as np
+from tqdm import tqdm
 
 
 def print_hi(name):
@@ -13,44 +16,14 @@ def print_hi(name):
     print(f'Hi, {name} ^_^y')  # Press Ctrl+F8 to toggle the breakpoint.
 
 
-def cpr_colormap(img_path):
-    h1 = []
-    h2 = []
-    origin_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-    h1.append(origin_img)
-    # cv2.imshow('origin_image', origin_img)
-    img = cv2.cvtColor(origin_img, cv2.COLOR_RGB2GRAY)
-    i = 0
-    for k, v in dict.items():
-        dst = cv2.applyColorMap(img, v)
-        if i < 3:
-            h1.append(dst)
-        else:
-            h2.append(dst)
-        i += 1
-        # cv2.imshow(k, dst)
-    hc1 = cv2.hconcat(h1)
-    hc2 = cv2.hconcat(h2)
-    full_img = cv2.vconcat([hc1, hc2])
-    cv2.imshow('ORIGIN BONE OCEAN PINK VIRIDIS CIVIDIS DEEPGREEN', full_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()  # hhhhhhh^__*
+def progress_bar():
+    num_mask = 100
+    for i in tqdm(range(num_mask), colour='#e946ef'):
+        time.sleep(1 / 10)
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    # img = cv2.imread('./dataset/testset/BKAI-IGH-NEOPOLYP/masks/0a22abd004c33abf3ae2136cd9dd77ae.png', cv2.IMREAD_GRAYSCALE)
-    img = cv2.imread('./dataset/testset/CVC-300/masks/208.png', cv2.IMREAD_GRAYSCALE)
-    cv2.imshow('gray_scale', img)
-    cv2.waitKey(0)
-    # print_hi('ChocolateNet')
-    # num_mask = 100
-    # for i in tqdm(range(num_mask), colour='#e946ef'):
-    #     time.sleep(1/10)
-    # fig = plt.figure(required_interactive_framework='TkAgg')
-    # img = cv2.imread('D://Study/pyspace/PraNet/data/TrainDataset/images/200.png', cv2.IMREAD_GRAYSCALE)
-    # pseudo1 = cv2.applyColorMap(img, colormap=cv2.COLORMAP_BONE)  # it looks indicarmine
-    colormaps = (
+def experiment_of_dye():
+    all_color_maps = (
         'COLORMAP_AUTUMN',  # 0
         'COLORMAP_BONE',  # 1
         'COLORMAP_JET',  # 2
@@ -74,12 +47,9 @@ if __name__ == '__main__':
         'COLORMAP_TURBO',  # 20
         'COLORMAP_DEEPGREEN'  # 21
     )
-    # chosen color
-    dict = {
+    chosen_color_maps = {
         'COLORMAP_BONE': 1,
-        # 'COLORMAP_WINTER': 3,  # canceled
         'COLORMAP_OCEAN': 5,
-        # 'COLORMAP_SUMMER': 6,
         'COLORMAP_PINK': 10,
         'COLORMAP_VIRIDIS': 16,
         'COLORMAP_CIVIDIS': 17,
@@ -88,4 +58,54 @@ if __name__ == '__main__':
     base_path = 'D://Study/pyspace/PraNet/data/TrainDataset/images/'
     img_paths = [base_path + img for img in os.listdir(base_path) if img.endswith('.png')]
     for img_path in img_paths:
-        cpr_colormap(img_path)
+        cpr_colormap(img_path, chosen_color_maps)
+
+
+def cpr_colormap(img_path, dict):
+    h1 = []
+    h2 = []
+    origin_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    h1.append(origin_img)
+    h2.append(origin_img)
+    # cv2.imshow('origin_image', origin_img)
+    img = cv2.cvtColor(origin_img, cv2.COLOR_RGB2GRAY)
+    i = 0
+    for k, v in dict.items():
+        dst = cv2.applyColorMap(img, v)
+        if i < 3:
+            h1.append(dst)
+        else:
+            h2.append(dst)
+        i += 1
+        # cv2.imshow(k, dst)
+    hc1 = cv2.hconcat(h1)
+    hc2 = cv2.hconcat(h2)
+    full_img = cv2.vconcat([hc1, hc2])
+    cv2.imshow('ORIGIN BONE OCEAN PINK VIRIDIS CIVIDIS DEEPGREEN', full_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def process_bkai_dataset():
+    bkai_path = './dataset/testset/BKAI-IGH-NEOPOLYP/masks/'
+    bkai_list = [bkai_path + dir for dir in os.listdir(bkai_path) if dir.endswith('.png')]
+    for bkai_img in bkai_list:
+        origin = cv2.imread(bkai_img, cv2.IMREAD_GRAYSCALE)
+        new = cv2.imread(bkai_img, cv2.IMREAD_GRAYSCALE)
+        new[new > 10] = 255
+        hs = [origin, new]
+        hc = cv2.hconcat(hs)
+        cv2.imshow('gray & binary', hc)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    # print_hi('ChocolateNet')
+
+    # progress_bar()
+
+    # experiment_of_dye()
+
+    process_bkai_dataset()
