@@ -33,7 +33,7 @@ class ChocolateNet(nn.Module):
         x4 = pvt[3]  # (bs, 512, 11, 11)
         ba_res = self.ba(x2, x3, x4)  # [(bs, 1, 11, 11), (bs, 1, 22, 22), (bs, 1, 44, 44)]
         sa_res = self.sa(x1)  # (bs, 64, 88, 88)
-        pred = self.fa(ba_res[0], ba_res[1], ba_res[2], sa_res)
+        pred = self.fa(ba_res, sa_res)
         return pred
 
 

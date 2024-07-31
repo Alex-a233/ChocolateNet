@@ -81,7 +81,7 @@ class CFBlock(nn.Module):
         self.conv_concat3 = MyConv(3 * channel, 3 * channel, 3, padding=1, is_act=False)
 
         self.conv4 = MyConv(3 * channel, 3 * channel, 3, padding=1, is_act=False)
-        self.conv5 = MyConv(3 * channel, 1, 3, padding=1, is_act=False)
+        self.conv5 = MyConv(3 * channel, 1, 1, is_act=False)
 
     def forward(self, x1, x2, x3):
         x1_1 = x1
@@ -106,23 +106,18 @@ class FeatureAggregation(nn.Module):
     def __init__(self, in_channel=64, out_channel=32, kernel_size=1):
         super(FeatureAggregation, self).__init__()
         self.layer1 = MyConv(in_channel, out_channel, kernel_size, is_act=False)
-        self.layer2 = MyConv(out_channel, 1, kernel_size, is_act=False)
+        self.layer2 = MyConv(out_channel, out_channel // 2, kernel_size, is_act=False)
+        self.layer3 = MyConv(out_channel // 2, 1, kernel_size, is_act=False)
         self.relu = nn.ReLU(inplace=True)
 
-    def forward(self, x4, x3, x2, x1):  # TODO: 将RA增强的x4,3,2分别和SA增强的x1融合
+    def forward(self, x2, x1):  # TODO: 将RA增强的x2和CA/SA增强的x1融合
         o1 = self.layer1(x1)
-        o1 = self.relu(self.layer2(o1))
+        o1 = self.layer2(o1)
+        o1 = self.relu(self.layer3(o1))
 
-        o4 = F.interpolate(x4, scale_factor=8, mode='bilinear', align_corners=True)
-        o3 = F.interpolate(x3, scale_factor=4, mode='bilinear', align_corners=True)
         o2 = F.interpolate(x2, scale_factor=2, mode='bilinear', align_corners=True)
+        f = o1 * o2
 
-        f1 = o1 + o4
-        f2 = o1 + o3
-        f3 = o1 + o2
+        f = F.interpolate(f, scale_factor=4, mode='bilinear', align_corners=True)
 
-        f1 = F.interpolate(f1, scale_factor=4, mode='bilinear', align_corners=True)
-        f2 = F.interpolate(f2, scale_factor=4, mode='bilinear', align_corners=True)
-        f3 = F.interpolate(f3, scale_factor=4, mode='bilinear', align_corners=True)
-
-        return [f1, f2, f3]
+        return f

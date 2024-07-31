@@ -37,7 +37,7 @@ class Supervisor(nn.Module):  # refers from MSNet
             if i in [9, 12, 15]:
                 sup_loss += iou_loss(pred, mask)
 
-        return sup_loss / 3.0
+        return sup_loss
 
 
 def iou_loss(pred, mask):  # TODO: after model converged, try biou

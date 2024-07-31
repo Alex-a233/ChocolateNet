@@ -21,7 +21,7 @@ def empty_create(path):
         os.makedirs(path)
 
 
-# 梯度剪裁 TODO:训练较为稳定在加入这个
+# 梯度剪裁 TODO:训练较为稳定再加入这个
 def clip_gradient(optimizer, grad_clip):
     for param_group in optimizer.param_groups:
         for param in param_group['params']:
@@ -41,19 +41,22 @@ def calculate_time_loss(start_time, end_time, process_type):
 # 选择最佳模型权重参数
 def choose_best(model, args):
     eval_path = args.eval_path
-    num_images = 0
-    sum_dice = 0.0
+    record = {}
+    image_num = 0
+    dice_sum = 0.0
     eps = 1e-8
 
     for dataset in ['CVC-300', 'CVC-ClinicDB', 'CVC-ColonDB', 'ETIS-LaribPolypDB', 'Kvasir']:  # 'BKAI-IGH-NEOPOLYP',
         image_path = os.path.join(eval_path, dataset, 'images/')
         mask_path = os.path.join(eval_path, dataset, 'masks/')
         image_list = [f for f in os.listdir(image_path) if f.endswith('.png')]
-        num_images += len(image_list)
+        cur_image_num = len(image_list)
+        cur_dice_sum = 0.
+        image_num += cur_image_num
 
         testset_loader = TestSet(image_path, mask_path, args.eval_size)
 
-        for i in range(len(image_list)):
+        for i in range(cur_image_num):
             image, mask, name = testset_loader.load_data()
 
             mask = np.asarray(mask, np.float32)
@@ -73,9 +76,13 @@ def choose_best(model, args):
             dice = (2 * intersection.sum() + eps) / (pred.sum() + mask.sum() + eps)
             dice = '{:.4f}'.format(dice)
             dice = float(dice)
-            sum_dice += dice
+            cur_dice_sum += dice
 
-    return sum_dice / num_images
+        cur_mdice = cur_dice_sum / cur_image_num
+        record[dataset] = cur_mdice
+        dice_sum += cur_dice_sum
+
+    return dice_sum / image_num, record
 
 
 if __name__ == '__main__':
@@ -88,7 +95,7 @@ if __name__ == '__main__':
     # parser.add_argument('--eval_size', default=352)
     # args = parser.parse_args()
     # model = ChocolateNet().cuda()
-    # mdice = choose_best(model, args)
+    # mdice, record = choose_best(model, args)
     # print(mdice)
 
     'test function `calculate_time_loss`'

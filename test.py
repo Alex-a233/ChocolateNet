@@ -20,8 +20,8 @@ if __name__ == '__main__':
 
     model = ChocolateNet()
     model.load_state_dict(torch.load(args.save_path))
-    model.cuda()
     model.eval()
+    model.cuda()
 
     start_time = datetime.now()
     print('$' * 20, 'Testing start and it is time about {}'.format(start_time), '$' * 20)
@@ -45,13 +45,13 @@ if __name__ == '__main__':
 
             pred = model(image)
             pred = F.interpolate(pred, size=mask.shape, mode='bilinear', align_corners=False)[0, 0]
+
             # refers from PCS in SANet，enforce the contrast between pos & neg samples
             pred[torch.where(pred > 0)] /= (pred > 0).float().mean()
             pred[torch.where(pred < 0)] /= (pred < 0).float().mean()
-            pred = pred.sigmoid().data.cpu().numpy()
 
-            empty_create(save_path + name)
-            cv2.imwrite(save_path + name, pred * 255)
+            pred = pred.sigmoid().data.cpu().numpy() * 255
+            cv2.imwrite(save_path + name, np.round(pred))
 
         print('$' * 15, 'Processing {} end'.format(testset_name), '$' * 15)
 
