@@ -1,8 +1,8 @@
 import argparse
-import numpy as np
 import traceback
 from datetime import datetime
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.cuda import amp
@@ -94,14 +94,15 @@ def train(model, trainset_loader, args):  # sup,
                 # if there generates a better best mdice, set early_stopping_cnt to 0
                 early_stopping_cnt = 0
 
-        if best_mdice < best_before:
-            early_stopping_cnt += 1
+            if best_mdice < best_before:
+                early_stopping_cnt += 1
 
-        if early_stopping_cnt == args.early_stopping_patience:
-            print_save('current time {}, epoch [{:03d}/{:03d}] & best mdice {:04f}.'
-                       ' model can not perform better, stop training'.format(datetime.now(), epoch, args.epoch,
-                                                                             best_mdice), args.log_path, args.log_name)
-            break
+            if early_stopping_cnt == args.early_stopping_patience:
+                stop_training_prompt = 'current time {}, epoch [{:03d}/{:03d}] & best mdice {:04f}. ' \
+                                       'model can not perform better, stop training~'
+                print_save(stop_training_prompt.format(datetime.now(), epoch, args.epoch, best_mdice), args.log_path,
+                           args.log_name)
+                break
 
     logger.close()
 
@@ -116,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer', type=str, default='AdamW')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
-    parser.add_argument('--early_stopping_patience', type=int, default=20, help='patience for epoch number')
+    parser.add_argument('--early_stopping_patience', type=int, default=30, help='patience for epoch number')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')
     parser.add_argument('--eval_size', type=int, default=352, help='evaluating image size')
