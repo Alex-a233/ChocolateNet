@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 
-# from backbone.pvtv2 import PvtV2B2
-from backbone.pvtv2 import pvt_v2_b2
+from backbone.pvtv2 import PvtV2B2
 from utils.attn import BoundaryAttention, StructureAttention
 from utils.toy_block import FeatureAggregation
 
@@ -12,7 +11,7 @@ class ChocolateNet(nn.Module):
     def __init__(self):
         super(ChocolateNet, self).__init__()
         # backbone pvt_v2_b2
-        self.backbone = pvt_v2_b2()
+        self.backbone = PvtV2B2()
         state_dict = torch.load('./pretrained_args/pvt_v2_b2.pth')
         model_state_dict = self.backbone.state_dict()
         model_state_dict_keys = model_state_dict.keys()
