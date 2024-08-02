@@ -5,28 +5,28 @@ import torch.nn.functional as F
 from utils.toy_block import MyConv, RFBBlock, CFBlock
 
 
-class ReverseAttention(nn.Module):
-
-    def __init__(self, in_channel, out_channel, depth=3, kernel_size=3, padding=1):
-        super(ReverseAttention, self).__init__()
-        self.conv_in = MyConv(in_channel, out_channel, 1, is_act=False)
-        self.conv_mid = nn.ModuleList()
-        for i in range(depth):
-            self.conv_mid.append(MyConv(out_channel, out_channel, kernel_size, padding=padding, is_act=False))
-        self.conv_out = MyConv(out_channel, 1, 1, is_act=False)
-
-    def forward(self, x, fm):
-        fm = F.interpolate(fm, size=x.shape[2:], mode='bilinear', align_corners=False)
-        rfm = -1 * (torch.sigmoid(fm)) + 1
-
-        x = rfm.expand(-1, x.shape[1], -1, -1).mul(x)
-        x = self.conv_in(x)
-        for mid_conv in self.conv_mid:
-            x = F.relu(mid_conv(x), inplace=True)
-        out = self.conv_out(x)
-        res = out + fm
-
-        return res
+# class ReverseAttention(nn.Module):  # TODO: comment this code block
+#
+#     def __init__(self, in_channel, out_channel, depth=3, kernel_size=3, padding=1):
+#         super(ReverseAttention, self).__init__()
+#         self.conv_in = MyConv(in_channel, out_channel, 1, is_act=False)
+#         self.conv_mid = nn.ModuleList()
+#         for i in range(depth):
+#             self.conv_mid.append(MyConv(out_channel, out_channel, kernel_size, padding=padding, is_act=False))
+#         self.conv_out = MyConv(out_channel, 1, 1, is_act=False)
+#
+#     def forward(self, x, fm):
+#         fm = F.interpolate(fm, size=x.shape[2:], mode='bilinear', align_corners=False)
+#         rfm = -1 * (torch.sigmoid(fm)) + 1
+#
+#         x = rfm.expand(-1, x.shape[1], -1, -1).mul(x)
+#         x = self.conv_in(x)
+#         for mid_conv in self.conv_mid:
+#             x = F.relu(mid_conv(x), inplace=True)
+#         out = self.conv_out(x)
+#         res = out + fm
+#
+#         return res
 
 
 class BoundaryAttention(nn.Module):
@@ -36,25 +36,21 @@ class BoundaryAttention(nn.Module):
         self.rfb2 = RFBBlock(128, 64)
         self.rfb3 = RFBBlock(320, 64)
         self.rfb4 = RFBBlock(512, 64)
-
-        self.cfb = CFBlock(64)
-
-        self.ra2 = ReverseAttention(128, 64, depth=2)
-        self.ra3 = ReverseAttention(320, 64, depth=2, kernel_size=5, padding=2)
-        self.ra4 = ReverseAttention(512, 64, depth=3, kernel_size=7, padding=3)
+        self.scconv = MyConv(192, 64, 1, is_bn=False, is_act=False)
 
     def forward(self, x2, x3, x4):
         # deal with x2,3,4 with receptive field block
-        rfb_x2 = self.rfb2(x2)
-        rfb_x3 = self.rfb3(x3)
-        rfb_x4 = self.rfb4(x4)
-        # cascade aggregate 3 rfb_res, get cfb_res
-        cfb_res = self.cfb(rfb_x4, rfb_x3, rfb_x2)
-        # deal with x2,3,4
-        ra4_res = self.ra4(x4, cfb_res)
-        ra3_res = self.ra3(x3, ra4_res)
-        ra2_res = self.ra2(x2, ra3_res)
-        return ra2_res
+        x2 = self.rfb2(x2)
+        x3 = self.rfb3(x3)
+        x4 = self.rfb4(x4)
+        # upsample x3, x4 to the size[2:] of x2
+        x3 = F.interpolate(x3, size=x2.size()[2:], mode='bilinear', align_corners=True)
+        x4 = F.interpolate(x4, size=x2.size()[2:], mode='bilinear', align_corners=True)
+        # concat x2, x3 & x4 on channel wise
+        res = torch.cat([x4, x3 * x4, x2 * x3 * x4], dim=1)
+        # shrink channel of res from 192 to 64
+        res = self.scconv(res)
+        return res
 
 
 class ChannelAttention(nn.Module):

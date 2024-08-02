@@ -29,7 +29,6 @@ def train(model, trainset_loader, args):  # sup,
         params = model.parameters()
         optimizer = torch.optim.AdamW(params, args.lr, weight_decay=args.weight_decay)
 
-        best_before = best_mdice
         for step, (images, masks) in enumerate(trainset_loader, start=1):
             images = images.cuda().float()
             masks = masks.cuda().float()
@@ -94,7 +93,7 @@ def train(model, trainset_loader, args):  # sup,
                 # if there generates a better best mdice, set early_stopping_cnt to 0
                 early_stopping_cnt = 0
 
-            if best_mdice < best_before:
+            else:
                 early_stopping_cnt += 1
 
             if early_stopping_cnt == args.early_stopping_patience:

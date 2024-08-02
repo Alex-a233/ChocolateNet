@@ -86,8 +86,7 @@ class CFBlock(nn.Module):
     def forward(self, x1, x2, x3):
         x1_1 = x1
         x2_1 = self.conv_us1(self.upsample(x1)) * x2
-        x3_1 = self.conv_us2(self.upsample(self.upsample(x1))) \
-               * self.conv_us3(self.upsample(x2)) * x3
+        x3_1 = self.conv_us2(self.upsample(self.upsample(x1))) * self.conv_us3(self.upsample(x2)) * x3
 
         x2_2 = torch.cat((x2_1, self.conv_us4(self.upsample(x1_1))), 1)
         x2_2 = self.conv_concat2(x2_2)
@@ -103,18 +102,14 @@ class CFBlock(nn.Module):
 
 class FeatureAggregation(nn.Module):
 
-    def __init__(self, in_channel=64, out_channel=32, kernel_size=1):
+    def __init__(self, in_channel=64):
         super(FeatureAggregation, self).__init__()
-        self.layer1 = MyConv(in_channel, out_channel, kernel_size)
-        self.layer2 = MyConv(out_channel, 1, kernel_size)
+        self.sconv = MyConv(320, in_channel, 1)
+        self.cfb = CFBlock(in_channel)
 
-    def forward(self, x2, x1):  # TODO: 将RA增强的x2和CA/SA增强的x1融合
-        o1 = self.layer1(x1)
-        o1 = self.layer2(o1)
-
-        o2 = F.interpolate(x2, scale_factor=2, mode='bilinear', align_corners=True)
-        f = o1 * o2 + o2
-
-        f = F.interpolate(f, scale_factor=4, mode='bilinear', align_corners=True)
+    def forward(self, x1, x2, x3):
+        x1 = self.sconv(x1)
+        cfb_res = self.cfb(x1, x2, x3)
+        f = F.interpolate(cfb_res, scale_factor=4, mode='bilinear', align_corners=True)
 
         return f
