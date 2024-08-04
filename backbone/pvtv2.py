@@ -7,26 +7,6 @@ from timm.models import register_model
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 
-def _init_weights(m):  # 初始化权重
-    if isinstance(m, nn.Linear):  # 若当前模块是线性层
-        # 截断当前模块权重的正态分布，将权重调整为正态分布，标准差为0.02
-        # 替代的写法是 nn.init.trunc_normal_(m.weight, std=.02)
-        trunc_normal_(m.weight, std=.02)
-        if m.bias is not None:  # 若当前模块的偏置不为空
-            nn.init.constant_(m.bias, 0)  # 使用 0 填充模块的 bias
-    elif isinstance(m, nn.LayerNorm):  # 若当前模块是 LayerNorm 层
-        nn.init.constant_(m.bias, 0)  # 使用 0 填充模块的 bias
-        nn.init.constant_(m.weight, 1.0)  # 使用 1.0 填充模块的 weight
-    elif isinstance(m, nn.Conv2d):  # 若当前模块是卷积
-        # 计算当前卷积层的扇出，即卷积尺寸相乘再乘以输出通道数
-        fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-        fan_out //= m.groups  # 计算平均扇出
-        # 将模块的权重缩放成均值为 0，方差为 根号(2.0/fan_out) 的状态 TODO: Q为什么是 2.0 呢?
-        m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-        if m.bias is not None:  # 若当前模块的偏置不为空
-            m.bias.data.zero_()  # 使用 0 填充模块的 bias
-
-
 class Mlp(nn.Module):
     """
     Multi-Layer Perceptron, MLP 多层感知器
@@ -56,7 +36,26 @@ class Mlp(nn.Module):
         # 将输入 Tensor 内的元素，按照概率 drop 做随机丢弃，相当于正则化，防止过拟合
         self.drop = nn.Dropout(drop)
         # 使用 self.apply(fn) 方法递归的将权重初始化方法作用于 Mlp 模块的每一个子模块
-        self.apply(_init_weights)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):  # 初始化权重
+        if isinstance(m, nn.Linear):  # 若当前模块是线性层
+            # 截断当前模块权重的正态分布，将权重调整为正态分布，标准差为0.02
+            # 替代的写法是 nn.init.trunc_normal_(m.weight, std=.02)
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:  # 若当前模块的偏置不为空
+                nn.init.constant_(m.bias, 0)  # 使用 0 填充模块的 bias
+        elif isinstance(m, nn.LayerNorm):  # 若当前模块是 LayerNorm 层
+            nn.init.constant_(m.bias, 0)  # 使用 0 填充模块的 bias
+            nn.init.constant_(m.weight, 1.0)  # 使用 1.0 填充模块的 weight
+        elif isinstance(m, nn.Conv2d):  # 若当前模块是卷积
+            # 计算当前卷积层的扇出，即卷积尺寸相乘再乘以输出通道数
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups  # 计算平均扇出
+            # 将模块的权重缩放成均值为 0，方差为 根号(2.0/fan_out) 的状态 TODO: Q为什么是 2.0 呢?
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:  # 若当前模块的偏置不为空
+                m.bias.data.zero_()  # 使用 0 填充模块的 bias
 
     def forward(self, x, H, W):
         """
@@ -113,7 +112,22 @@ class Attention(nn.Module):
             self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)  # 相当于下采样
             self.norm = nn.LayerNorm(dim)
         # 使用 self.apply(fn) 方法递归的将权重初始化方法作用于 Attention 模块的每一个子模块
-        self.apply(_init_weights)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
 
     def forward(self, x, H, W):
         B, N, C = x.shape  # Tensor x 的 shape 是 (B, N, C), 其中 N = H * W，C 代表总嵌入维度 total_embed_dim
@@ -193,7 +207,22 @@ class Block(nn.Module):
         # 实例化一个多层感知器模块
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
-        self.apply(_init_weights)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
 
     def forward(self, x, H, W):
         # 从输入 Tensor x 中拷贝一份，留给残差结构使用。
@@ -236,7 +265,22 @@ class OverlapPatchEmbed(nn.Module):
                               padding=(patch_size[0] // 2, patch_size[1] // 2))
         self.norm = nn.LayerNorm(embed_dim)
         # 使用 self.apply(fn) 方法递归的将权重初始化方法作用于 OverlapPatchEmbed 模块的每一个子模块
-        self.apply(_init_weights)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
 
     def forward(self, x):
         # 使用卷积实现图像切块操作
@@ -328,7 +372,22 @@ class PyramidVisionTransformerImpr(nn.Module):
         # classification head, here is not about classification task but segmentation task
         # self.head = nn.Linear(embed_dims[3], num_classes) if num_classes > 0 else nn.Identity()
 
-        self.apply(_init_weights)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
 
     def init_weights(self, pretrained=None):
         if isinstance(pretrained, str):
@@ -448,24 +507,6 @@ def _conv_filter(state_dict, patch_size=16):
     return out_dict
 
 
-# @register_model
-# class PvtV2B0(PyramidVisionTransformerImpr):
-#     def __init__(self, **kwargs):
-#         super(PvtV2B0, self).__init__(
-#             patch_size=4, embed_dims=[32, 64, 160, 256], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
-#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-#             drop_rate=0.0, drop_path_rate=0.1)
-
-
-# @register_model
-# class PvtV2B1(PyramidVisionTransformerImpr):
-#     def __init__(self, **kwargs):
-#         super(PvtV2B1, self).__init__(
-#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
-#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
-#             drop_rate=0.0, drop_path_rate=0.1)
-
-
 @register_model
 class PvtV2B2(PyramidVisionTransformerImpr):
     def __init__(self, **kwargs):
@@ -473,30 +514,3 @@ class PvtV2B2(PyramidVisionTransformerImpr):
             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 6, 3], sr_ratios=[8, 4, 2, 1],
             drop_rate=0.0, drop_path_rate=0.1)
-
-
-# @register_model
-# class PvtV2B3(PyramidVisionTransformerImpr):
-#     def __init__(self, **kwargs):
-#         super(PvtV2B3, self).__init__(
-#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
-#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 4, 18, 3], sr_ratios=[8, 4, 2, 1],
-#             drop_rate=0.0, drop_path_rate=0.1)
-
-
-# @register_model
-# class PvtV2B4(PyramidVisionTransformerImpr):
-#     def __init__(self, **kwargs):
-#         super(PvtV2B4, self).__init__(
-#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[8, 8, 4, 4],
-#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 8, 27, 3], sr_ratios=[8, 4, 2, 1],
-#             drop_rate=0.0, drop_path_rate=0.1)
-
-
-# @register_model
-# class PvtV2B5(PyramidVisionTransformerImpr):
-#     def __init__(self, **kwargs):
-#         super(PvtV2B5, self).__init__(
-#             patch_size=4, embed_dims=[64, 128, 320, 512], num_heads=[1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4],
-#             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[3, 6, 40, 3], sr_ratios=[8, 4, 2, 1],
-#             drop_rate=0.0, drop_path_rate=0.1)
