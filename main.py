@@ -8,6 +8,11 @@ import time
 
 import cv2
 import numpy as np
+import torch
+from PIL import Image
+
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import Resize, transforms
 from tqdm import tqdm
 
 
@@ -100,6 +105,82 @@ def process_bkai_dataset():
         cv2.destroyAllWindows()
 
 
+def calc_mean_std():
+    # train_imgs = [os.path.join('./dataset/trainset/images', img) for img in os.listdir('./dataset/trainset/images') if img.endswith('.png')]
+    #
+    # mean = [0.0, 0.0, 0.0]
+    # std = [0.0, 0.0, 0.0]
+    #
+    # num = len(train_imgs)
+    #
+    # for train_img in train_imgs:
+    #     img = cv2.imread(train_img, cv2.IMREAD_COLOR).astype(np.float32)
+    #     img = cv2.resize(img, (352, 352))
+    #     mean, std = cv2.meanStdDev(img)
+    #
+    #     mean[0] += mean[0]
+    #     mean[1] += mean[1]
+    #     mean[2] += mean[2]
+    #
+    #     std[0] += std[0]
+    #     std[1] += std[1]
+    #     std[2] += std[2]
+    #
+    # mean[0] /= num
+    # mean[1] /= num
+    # mean[2] /= num
+    #
+    # std[0] /= num
+    # std[1] /= num
+    # std[2] /= num
+    #
+    # print('train_set\'s \nmean = {}, \nstd = {}'.format(mean, std))
+
+    dataset = SegmentationDataset()
+    # 假设 dataset 是一个 PyTorch 的数据集
+    train_loader = DataLoader(dataset, batch_size=1, shuffle=False)
+    resize = Resize((352, 352))
+
+    # 计算均值和方差
+    mean = 0.
+    std = 0.
+    for img, _ in train_loader:
+        img = resize(img)
+        mean += img.mean([0, 2, 3])
+        std += img.std([0, 2, 3])
+    mean /= len(train_loader)
+    std /= len(train_loader)
+
+    print(f'Mean: {mean}')
+    print(f'Std: {std}')
+
+
+class SegmentationDataset(Dataset):
+    def __init__(self, root_dir='./dataset/trainset/', transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.image_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'images')) if f.endswith('.png')])
+        self.mask_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'masks')) if f.endswith('.png')])
+        self.image_transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        image_path = os.path.join(self.root_dir, 'images', self.image_files[idx])
+        mask_path = os.path.join(self.root_dir, 'masks', self.mask_files[idx])
+
+        image = Image.open(image_path).convert('RGB')
+        mask = Image.open(mask_path).convert('L')
+
+        image = self.image_transform(image)
+        mask = self.image_transform(mask)
+
+        return image, mask
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     # print_hi('ChocolateNet')
@@ -108,4 +189,6 @@ if __name__ == '__main__':
 
     # experiment_of_dye()
 
-    process_bkai_dataset()
+    # process_bkai_dataset()
+
+    calc_mean_std()  # TODO: wait for author reply, if i guess right, change norm

@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.cuda import amp
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -23,11 +24,11 @@ def train(model, trainset_loader, args):  # sup,
     early_stopping_cnt = 0
     eval_epoch = args.epoch // 3
     global_step = 1
-    size_rates = [0.5, 0.75, 1, 1.25, 1.5]  # TODO: this maybe affects training speed
+    size_rates = [0.5, 0.75, 1, 1.25, 1.5]
 
     for epoch in range(1, args.epoch + 1):
         params = model.parameters()
-        optimizer = torch.optim.AdamW(params, args.lr, weight_decay=args.weight_decay)
+        optimizer = AdamW(params, args.lr, weight_decay=args.weight_decay)
 
         for step, (images, masks) in enumerate(trainset_loader, start=1):
             images = images.cuda().float()
@@ -108,11 +109,11 @@ def train(model, trainset_loader, args):  # sup,
 
 if __name__ == '__main__':
     cur_date = datetime.now().date().isoformat()
-
+    # TODO: adjust epoch & lr
     parser = argparse.ArgumentParser(description='here is training arguments')
-    parser.add_argument('--epoch', type=int, default=120)
+    parser.add_argument('--epoch', type=int, default=60)
     parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--optimizer', type=str, default='AdamW')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')

@@ -77,7 +77,7 @@ class TestSet:
         self.size = len(self.images)
         self.index = 0
 
-    def load_data(self):  # 加载数据
+    def load_data(self):
         image = Image.open(self.images[self.index]).convert('RGB')
         mask = Image.open(self.masks[self.index]).convert('L')
         image = self.image_transform(image).unsqueeze(0)
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     train_set = TrainSet(args)
     print(train_set.size)
-    image, mask = train_set.__getitem__(0)  # change to PIL
+    image, mask = train_set.__getitem__(0)
     print(image.shape, mask.shape)
     test_set = TestSet(args.eval_path + 'Kvasir/images/', args.eval_path + 'Kvasir/masks/', args.train_size)
     image, mask, name = test_set.load_data()

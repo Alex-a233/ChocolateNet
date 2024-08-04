@@ -27,7 +27,7 @@ if __name__ == '__main__':
     print('$' * 20, 'Testing start and it is time about {}'.format(start_time), '$' * 20)
 
     for testset_name in ['BKAI-IGH-NEOPOLYP', 'CVC-300', 'CVC-ClinicDB', 'CVC-ColonDB', 'ETIS-LaribPolypDB', 'Kvasir']:
-        print('$' * 15, 'Processing {} start'.format(testset_name), '$' * 15)
+        print('$' * 15, 'Processing {} start'.format(testset_name), '$' * 16)
         data_path = './dataset/testset/{}'.format(testset_name)
         save_path = './predicts/ChocolateNet/{}/'.format(testset_name)
 
@@ -39,10 +39,9 @@ if __name__ == '__main__':
 
         for i in tqdm(range(num_mask), colour='#e946ef'):
             image, mask, name = test_set.load_data()
-            mask = np.asarray(mask, np.float32)
-            mask /= (mask.max(initial=.0) + 1e-8)  # TODO: beware here, max(initial = 0) maybe wrong
-            image = image.cuda()
+            mask = np.asnumpy(mask, np.float32)  # exchange mask's height and width
 
+            image = image.cuda()
             pred = model(image)
             pred = F.interpolate(pred, size=mask.shape, mode='bilinear', align_corners=False)[0, 0]
 
@@ -50,10 +49,12 @@ if __name__ == '__main__':
             pred[torch.where(pred > 0)] /= (pred > 0).float().mean()
             pred[torch.where(pred < 0)] /= (pred < 0).float().mean()
 
+            # pred = (pred - pred.min()) / (pred.max() - pred.min() + 1e-8)
+
             pred = pred.sigmoid().data.cpu().numpy() * 255
             cv2.imwrite(save_path + name, np.round(pred))
 
-        print('$' * 15, 'Processing {} end'.format(testset_name), '$' * 15)
+        print('$' * 15, 'Processing {} end'.format(testset_name), '$' * 16)
 
     end_time = datetime.now()
     print('$' * 20, 'Testing end and it is time about {}'.format(end_time), '$' * 20 + '\n')
