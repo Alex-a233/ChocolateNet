@@ -60,7 +60,7 @@ class ChannelAttention(nn.Module):
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
         self.fc1 = MyConv(in_channel, in_channel // 16, 1, is_bn=False)
-        self.fc2 = MyConv(in_channel // 16, in_channel, 1, is_bn=False)
+        self.fc2 = MyConv(in_channel // 16, in_channel, 1, is_bn=False, is_act=False)
 
     def forward(self, x):
         avg_res = self.fc2(self.fc1(self.avg_pool(x)))
@@ -73,7 +73,7 @@ class SpatialAttention(nn.Module):
 
     def __init__(self, kernel_size=1):
         super(SpatialAttention, self).__init__()
-        self.conv = MyConv(2, 1, kernel_size, is_bn=False)
+        self.conv = MyConv(2, 1, kernel_size, is_bn=False, is_act=False)
 
     def forward(self, x):
         avg_res = torch.mean(x, dim=1, keepdim=True)
