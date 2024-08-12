@@ -1,6 +1,8 @@
 import argparse
 import os
+import random
 
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -52,8 +54,16 @@ class TrainSet(Dataset):
     def __getitem__(self, index):
         image = Image.open(self.images[index]).convert('RGB')
         mask = Image.open(self.masks[index]).convert('L')
+        seed = 2024
+
+        random.seed(seed)
+        torch.manual_seed(seed)
         image = self.image_transform(image)
+
+        random.seed(seed)
+        torch.manual_seed(seed)
         mask = self.mask_transform(mask)
+
         return image, mask
 
     def __len__(self):

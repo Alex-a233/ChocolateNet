@@ -1,7 +1,4 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import argparse
 import datetime
 import os
 import time
@@ -9,16 +6,16 @@ import time
 import cv2
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Resize, transforms
 from tqdm import tqdm
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name} ^_^y')  # Press Ctrl+F8 to toggle the breakpoint.
+from backbone.pvtv2 import PvtV2B2
+from utils.dataloader import TrainSet
 
 
 def progress_bar():
@@ -181,9 +178,57 @@ class SegmentationDataset(Dataset):
         return image, mask
 
 
+def test_boundary_attention():
+    backbone = PvtV2B2()
+    path = './pretrained_pth/pvt_v2_b2.pth'
+    save_model = torch.load(path)
+    model_dict = backbone.state_dict()
+    state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+    model_dict.update(state_dict)
+    backbone.load_state_dict(model_dict)
+
+    parser = argparse.ArgumentParser(description='here is training arguments')
+    parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
+    parser.add_argument('--train_size', type=int, default=352, help='training image size')
+    parser.add_argument('--train_path', type=str, default='./dataset/trainset/', help='training set path')
+    args = parser.parse_args()
+
+    train_set = TrainSet(args)
+    trainset_loader = DataLoader(dataset=train_set, batch_size=args.batch_size,
+                                 shuffle=True, num_workers=4, pin_memory=True)
+    for step, (images, masks) in enumerate(trainset_loader, start=1):
+        print('step {}'.format(step))
+        images = images.cuda().float()
+        masks = masks.cuda().float()
+        pvt = backbone(images)
+        x1 = pvt[0]  # (bs, 64, 88, 88)
+        x2 = pvt[1]  # (bs, 128, 44, 44)
+        x3 = pvt[2]  # (bs, 320, 22, 22)
+        x4 = pvt[3]  # (bs, 512, 11, 11)
+
+        # 取后三个特征图，改通道数
+        conv2 = nn.Conv2d(128, 32, 1)
+        conv3 = nn.Conv2d(320, 32, 1)
+        conv4 = nn.Conv2d(512, 32, 1)
+
+        x2 = conv2(x2)
+        x3 = conv3(x3)
+        x4 = conv4(x4)
+
+        # 后两个上采样
+        up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        # 三个特征图做减法，减出边界
+        x4_3 = torch.abs(up(x4) - x3)
+        x3_2 = torch.abs(up(x3) - x2)
+        x4_3_2 = torch.abs(up(x4_3) - x3_2)
+
+        # 取反
+
+
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # print_hi('ChocolateNet')
 
     # progress_bar()
 
@@ -192,3 +237,5 @@ if __name__ == '__main__':
     # process_bkai_dataset()
 
     calc_mean_std()  # TODO: wait for author reply, if i guess right, change norm
+
+    test_boundary_attention()

@@ -5,10 +5,11 @@ import torch.nn.functional as F
 
 class MyConv(nn.Module):
 
-    def __init__(self, in_channel, out_channel, kernel_size, stride=1, padding=0, dilation=1, is_bn=True, is_act=True):
+    def __init__(self, in_channel, out_channel, kernel_size, stride=1, padding=0, dilation=1, use_bias=False,
+                 is_bn=True, is_act=True):
         super(MyConv, self).__init__()
-        self.conv = nn.Conv2d(in_channel, out_channel, kernel_size, stride=(stride, stride), padding=padding,
-                              dilation=(dilation, dilation), bias=False)
+        self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=kernel_size,
+                              stride=stride, padding=padding, dilation=dilation, bias=use_bias)
         self.bn = nn.BatchNorm2d(out_channel)
         self.relu = nn.ReLU(inplace=True)
         self.is_bn = is_bn
@@ -69,7 +70,7 @@ class CFBlock(nn.Module):
 
     def __init__(self, channel):
         super(CFBlock, self).__init__()
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.ups = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
         self.conv_us1 = MyConv(channel, channel, 3, padding=1, is_act=False)
         self.conv_us2 = MyConv(channel, channel, 3, padding=1, is_act=False)
@@ -80,36 +81,102 @@ class CFBlock(nn.Module):
         self.conv_concat2 = MyConv(2 * channel, 2 * channel, 3, padding=1, is_act=False)
         self.conv_concat3 = MyConv(3 * channel, 3 * channel, 3, padding=1, is_act=False)
 
-        self.conv4 = MyConv(3 * channel, 3 * channel, 3, padding=1, is_act=False)
-        self.conv5 = MyConv(3 * channel, 1, 1, is_act=False)
+        self.conv4 = MyConv(3 * channel, channel, 3, padding=1, is_act=False)
 
     def forward(self, x1, x2, x3):
         x1_1 = x1
-        x2_1 = self.conv_us1(self.upsample(x1)) * x2
-        x3_1 = self.conv_us2(self.upsample(self.upsample(x1))) * self.conv_us3(self.upsample(x2)) * x3
+        x2_1 = self.conv_us1(self.ups(x1)) * x2
+        x3_1 = self.conv_us2(self.ups(self.ups(x1))) * self.conv_us3(self.ups(x2)) * x3
 
-        x2_2 = torch.cat((x2_1, self.conv_us4(self.upsample(x1_1))), 1)
+        x2_2 = torch.cat((x2_1, self.conv_us4(self.ups(x1_1))), 1)
         x2_2 = self.conv_concat2(x2_2)
 
-        x3_2 = torch.cat((x3_1, self.conv_us5(self.upsample(x2_2))), 1)
+        x3_2 = torch.cat((x3_1, self.conv_us5(self.ups(x2_2))), 1)
         x3_2 = self.conv_concat3(x3_2)
 
         x = self.conv4(x3_2)
-        x = self.conv5(x)
 
         return x
 
 
+class GCN(nn.Module):
+
+    def __init__(self, num_state, num_node, bias=False):
+        super(GCN, self).__init__()
+        self.conv1 = nn.Conv1d(num_node, num_node, kernel_size=1)
+        self.conv2 = nn.Conv1d(num_state, num_state, kernel_size=1, bias=bias)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        h = self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1)
+        h = h - x
+        h = self.relu(self.conv2(h))
+        return h
+
+
 class FeatureAggregation(nn.Module):
 
-    def __init__(self, in_channel=64):
+    # def __init__(self, in_channels=64):
+    #     super(FeatureAggregation, self).__init__()
+    #     self.scconv = MyConv(64, 32, 1)
+    #     self.upsample = nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=True)
+    #     self.query_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0)
+    #     self.key_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0)
+    #     self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0)
+    #     self.gamma = nn.Parameter(torch.zeros(1))
+    #     self.softmax = nn.Softmax(dim=1)
+    # 
+    # def forward(self, x1, x2):
+    #     x2 = self.scconv(x2)
+    #     x2 = self.upsample(x2)
+    #     x = torch.cat([x1, x2], dim=1)
+    #     b, c, h, w = x.size()
+    #     q = self.query_conv(x).view(b, -1, h * w).permute(0, 2, 1)
+    #     k = self.key_conv(x).view(b, -1, h * w)
+    #     am = torch.bmm(q, k)
+    #     a = self.softmax(am)
+    #     v = self.value_conv(x).view(b, -1, h * w)
+    #     out = torch.bmm(v, a.permute(0, 2, 1))
+    #     out = out.view(b, c, h, w)
+    #     out = self.gamma * out + x
+    #     return out
+
+    def __init__(self, num_in=32, plane_mid=16, mids=4, normalize=False):
         super(FeatureAggregation, self).__init__()
-        self.sconv = MyConv(320, in_channel, 1)
-        self.cfb = CFBlock(in_channel)
+        self.normalize = normalize
+        self.num_s = plane_mid
+        self.num_n = mids * mids
+        self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
 
-    def forward(self, x1, x2, x3):
-        x1 = self.sconv(x1)
-        cfb_res = self.cfb(x1, x2, x3)
-        f = F.interpolate(cfb_res, scale_factor=4, mode='bilinear', align_corners=True)
+        self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
+        self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
+        self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
+        self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
 
-        return f
+    def forward(self, x, edge):
+        n, c, h, w = x.size()
+        x_state_reshaped = self.conv_state(x).view(n, self.num_s, -1)
+        x_proj = self.conv_proj(x)
+
+        edge = F.interpolate(edge, (h, w))
+        edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
+
+        x_mask = x_proj * edge
+        x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(n, self.num_s, -1)
+
+        x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(n, self.num_s, -1))
+        x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
+
+        x_rproj_reshaped = x_proj_reshaped
+        x_n_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
+
+        if self.normalize:
+            x_n_state = x_n_state * (1. / x_state_reshaped.size(2))
+
+        x_n_rel = self.gcn(x_n_state)
+        x_state_reshaped = torch.matmul(x_n_rel, x_rproj_reshaped)
+
+        x_state = x_state_reshaped.view(n, self.num_s, *x.size()[2:])
+        out = x + (self.conv_extend(x_state))
+
+        return out
