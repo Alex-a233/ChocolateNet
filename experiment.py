@@ -178,15 +178,49 @@ class SegmentationDataset(Dataset):
         return image, mask
 
 
-def test_boundary_attention():
-    backbone = PvtV2B2()
-    path = './pretrained_pth/pvt_v2_b2.pth'
-    save_model = torch.load(path)
-    model_dict = backbone.state_dict()
-    state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-    model_dict.update(state_dict)
-    backbone.load_state_dict(model_dict)
+class Model(nn.Module):
 
+    def __init__(self):
+        super(Model, self).__init__()
+        self.backbone = PvtV2B2()
+        path = './pretrained_args/pvt_v2_b2.pth'
+        save_model = torch.load(path)
+        model_dict = self.backbone.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.backbone.load_state_dict(model_dict)
+        # 取后三个特征图，改通道数
+        self.conv2 = nn.Conv2d(128, 32, 1)
+        self.conv3 = nn.Conv2d(320, 32, 1)
+        self.conv4 = nn.Conv2d(512, 32, 1)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+    def forward(self, x):
+        pvt = self.backbone(x)
+        x1 = pvt[0]  # (bs, 64, 88, 88)
+        x2 = pvt[1]  # (bs, 128, 44, 44)
+        x3 = pvt[2]  # (bs, 320, 22, 22)
+        x4 = pvt[3]  # (bs, 512, 11, 11)
+
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+        x4 = self.conv4(x4)
+
+        # 后两个上采样
+        # 三个特征图做减法，减出边界
+        x4_3 = torch.abs(self.up(x4) - x3)
+        x3_2 = torch.abs(self.up(x3) - x2)
+        x4_3_2 = torch.abs(self.up(x4_3) - x3_2)
+
+        # 遍历取反
+        # rfm = -1 * (torch.sigmoid(fm)) + 1
+        # x = rfm.expand(-1, x.shape[1], -1, -1).mul(x)
+        return x4_3_2
+
+
+def test_boundary_attention():
+    model = Model()
+    model.cuda()
     parser = argparse.ArgumentParser(description='here is training arguments')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')
@@ -194,48 +228,20 @@ def test_boundary_attention():
     args = parser.parse_args()
 
     train_set = TrainSet(args)
-    trainset_loader = DataLoader(dataset=train_set, batch_size=args.batch_size,
-                                 shuffle=True, num_workers=4, pin_memory=True)
+    trainset_loader = DataLoader(dataset=train_set, batch_size=16, shuffle=True, num_workers=4, pin_memory=True)
     for step, (images, masks) in enumerate(trainset_loader, start=1):
-        print('step {}'.format(step))
         images = images.cuda().float()
         masks = masks.cuda().float()
-        pvt = backbone(images)
-        x1 = pvt[0]  # (bs, 64, 88, 88)
-        x2 = pvt[1]  # (bs, 128, 44, 44)
-        x3 = pvt[2]  # (bs, 320, 22, 22)
-        x4 = pvt[3]  # (bs, 512, 11, 11)
-
-        # 取后三个特征图，改通道数
-        conv2 = nn.Conv2d(128, 32, 1)
-        conv3 = nn.Conv2d(320, 32, 1)
-        conv4 = nn.Conv2d(512, 32, 1)
-
-        x2 = conv2(x2)
-        x3 = conv3(x3)
-        x4 = conv4(x4)
-
-        # 后两个上采样
-        up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-
-        # 三个特征图做减法，减出边界
-        x4_3 = torch.abs(up(x4) - x3)
-        x3_2 = torch.abs(up(x3) - x2)
-        x4_3_2 = torch.abs(up(x4_3) - x3_2)
-
-        # 取反
+        res = model(images)
 
 
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-
     # progress_bar()
 
     # experiment_of_dye()
 
     # process_bkai_dataset()
 
-    calc_mean_std()  # TODO: wait for author reply, if i guess right, change norm
+    # calc_mean_std()  # TODO: wait for author reply, if i guess right, change norm
 
     test_boundary_attention()

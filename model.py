@@ -36,8 +36,8 @@ class ChocolateNet(nn.Module):
         sa_res = self.sa(x1)  # (bs, 32, 44, 44)
         ba_res = self.ba(x2, x3, x4)  # (bs, 32, 44, 44)
         fa_res = self.fa(ba_res, sa_res)  # (bs, 32, 44, 44)
-        ba_res = self.out_ba(ba_res)  # (bs, 32, 44, 44)
-        fa_res = self.out_fa(fa_res)  # (bs, 32, 44, 44)
+        ba_res = self.out_ba(ba_res)  # (bs, 1, 44, 44)
+        fa_res = self.out_fa(fa_res)  # (bs, 1, 44, 44)
         pred1 = self.upsample(ba_res)
         pred2 = self.upsample(fa_res)
         return pred1 + pred2

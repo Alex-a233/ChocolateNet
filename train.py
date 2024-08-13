@@ -24,7 +24,6 @@ def train(model, trainset_loader, args):  # sup,
     logger = SummaryWriter(args.log_path)
     total_step = len(trainset_loader)
     global_step = 1
-    # eval_epoch = args.epoch // 3
     best_mdice = 0.0
     early_stopping_cnt = 0
 
@@ -79,8 +78,6 @@ def train(model, trainset_loader, args):  # sup,
                 print_save('current time {}, epoch [{:03d}/{:03d}], step [{:04d}/{:04d}], loss:{:04f}]'.format(
                     datetime.now(), epoch, args.epoch, step, total_step, loss), args.log_path, args.log_name)
 
-        # eval current model begin from 3rd of total_epochs
-        # if epoch >= eval_epoch:
         mean_dice, record = choose_best(model, args)
 
         # save the best model weights args if cur mdice better than ever before

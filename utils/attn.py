@@ -5,28 +5,28 @@ import torch.nn.functional as F
 from utils.toy_block import MyConv, CFBlock
 
 
-# class ReverseAttention(nn.Module):  # TODO: comment this code block
-#
-#     def __init__(self, in_channel, out_channel, depth=3, kernel_size=3, padding=1):
-#         super(ReverseAttention, self).__init__()
-#         self.conv_in = MyConv(in_channel, out_channel, 1, is_act=False)
-#         self.conv_mid = nn.ModuleList()
-#         for i in range(depth):
-#             self.conv_mid.append(MyConv(out_channel, out_channel, kernel_size, padding=padding, is_act=False))
-#         self.conv_out = MyConv(out_channel, 1, 1, is_act=False)
-#
-#     def forward(self, x, fm):
-#         fm = F.interpolate(fm, size=x.shape[2:], mode='bilinear', align_corners=False)
-#         rfm = -1 * (torch.sigmoid(fm)) + 1
-#
-#         x = rfm.expand(-1, x.shape[1], -1, -1).mul(x)
-#         x = self.conv_in(x)
-#         for mid_conv in self.conv_mid:
-#             x = F.relu(mid_conv(x), inplace=True)
-#         out = self.conv_out(x)
-#         res = out + fm
-#
-#         return res
+class ReverseAttention(nn.Module):
+
+    def __init__(self, in_channel, out_channel, depth=3, kernel_size=3, padding=1):
+        super(ReverseAttention, self).__init__()
+        self.conv_in = MyConv(in_channel, out_channel, 1, is_act=False)
+        self.conv_mid = nn.ModuleList()
+        for i in range(depth):
+            self.conv_mid.append(MyConv(out_channel, out_channel, kernel_size, padding=padding, is_act=False))
+        self.conv_out = MyConv(out_channel, 1, 1, is_act=False)
+
+    def forward(self, x, fm):
+        fm = F.interpolate(fm, size=x.shape[2:], mode='bilinear', align_corners=False)
+        rfm = -1 * (torch.sigmoid(fm)) + 1
+
+        x = rfm.expand(-1, x.shape[1], -1, -1).mul(x)
+        x = self.conv_in(x)
+        for mid_conv in self.conv_mid:
+            x = F.relu(mid_conv(x), inplace=True)
+        out = self.conv_out(x)
+        res = out + fm
+
+        return res
 
 
 class AxialAttention(nn.Module):
