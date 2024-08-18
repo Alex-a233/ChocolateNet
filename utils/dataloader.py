@@ -58,10 +58,12 @@ class TrainSet(Dataset):
 
         random.seed(seed)
         torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
         image = self.image_transform(image)
 
         random.seed(seed)
         torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
         mask = self.mask_transform(mask)
 
         return image, mask

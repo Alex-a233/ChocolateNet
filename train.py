@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from model import ChocolateNet
 from utils.dataloader import TrainSet
 from utils.loss_func import wbce_wdice
-from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient
+from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss
 
 
 def train(model, trainset_loader, args):  # sup,
@@ -27,6 +27,7 @@ def train(model, trainset_loader, args):  # sup,
     best_mdice = 0.0
     early_stopping_cnt = 0
 
+    print(optimizer)
     for epoch in range(1, args.epoch + 1):
 
         for step, pairs in enumerate(trainset_loader, start=1):
@@ -114,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
-    parser.add_argument('--early_stopping_patience', type=int, default=30, help='patience for epoch number')
+    parser.add_argument('--early_stopping_patience', type=int, default=20, help='patience for epoch number')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')
     parser.add_argument('--eval_size', type=int, default=352, help='evaluating image size')

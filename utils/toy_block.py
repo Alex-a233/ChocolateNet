@@ -118,17 +118,14 @@ class FeatureAggregation(nn.Module):
 
     # def __init__(self, in_channels=64):
     #     super(FeatureAggregation, self).__init__()
-    #     self.scconv = MyConv(64, 32, 1)
-    #     self.upsample = nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=True)
-    #     self.query_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0)
-    #     self.key_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0)
-    #     self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0)
+    #     self.query_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0, use_bias=True, is_bn=False, is_act=False)
+    #     self.key_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0, use_bias=True, is_bn=False, is_act=False)
+    #     self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0, is_bn=False, is_act=False)
     #     self.gamma = nn.Parameter(torch.zeros(1))
     #     self.softmax = nn.Softmax(dim=1)
-    # 
+    #     self.scconv = MyConv(in_channels, in_channels // 2, kernel_size=1, is_bn=False, is_act=False)
+    #
     # def forward(self, x1, x2):
-    #     x2 = self.scconv(x2)
-    #     x2 = self.upsample(x2)
     #     x = torch.cat([x1, x2], dim=1)
     #     b, c, h, w = x.size()
     #     q = self.query_conv(x).view(b, -1, h * w).permute(0, 2, 1)
@@ -139,6 +136,7 @@ class FeatureAggregation(nn.Module):
     #     out = torch.bmm(v, a.permute(0, 2, 1))
     #     out = out.view(b, c, h, w)
     #     out = self.gamma * out + x
+    #     out = self.scconv(out)
     #     return out
 
     def __init__(self, num_in=32, plane_mid=16, mids=4, normalize=False):

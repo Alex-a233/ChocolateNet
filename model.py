@@ -19,13 +19,13 @@ class ChocolateNet(nn.Module):
 
         # 2. Structure Attention Module(CA+SA)
         self.sa = StructureAttention()
-        # 1. Boundary Attention Module(RA+SA)
+        # 1. Boundary Attention Module
         self.ba = BoundaryAttention()
         # 3. Feature Aggregation Module
         self.fa = FeatureAggregation()
         self.out_ba = MyConv(32, 1, 1, use_bias=True, is_bn=False, is_act=False)
         self.out_fa = MyConv(32, 1, 1, use_bias=True, is_bn=False, is_act=False)
-        self.upsample = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
+        self.up = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
 
     def forward(self, x):
         pvt = self.backbone(x)
@@ -33,13 +33,13 @@ class ChocolateNet(nn.Module):
         x2 = pvt[1]  # (bs, 128, 44, 44)
         x3 = pvt[2]  # (bs, 320, 22, 22)
         x4 = pvt[3]  # (bs, 512, 11, 11)
-        sa_res = self.sa(x1)  # (bs, 32, 44, 44)
         ba_res = self.ba(x2, x3, x4)  # (bs, 32, 44, 44)
+        sa_res = self.sa(x1)  # (bs, 32, 44, 44)
         fa_res = self.fa(ba_res, sa_res)  # (bs, 32, 44, 44)
         ba_res = self.out_ba(ba_res)  # (bs, 1, 44, 44)
         fa_res = self.out_fa(fa_res)  # (bs, 1, 44, 44)
-        pred1 = self.upsample(ba_res)
-        pred2 = self.upsample(fa_res)
+        pred1 = self.up(ba_res)
+        pred2 = self.up(fa_res)
         return pred1 + pred2
 
 
