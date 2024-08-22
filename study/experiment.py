@@ -330,7 +330,7 @@ def count_polyp():
     return sum_dict
 
 
-def draw_distr_graph(sum_dict):
+def draw_graph(sum_dict):
     # set horizontal axis as number
     width = 0.1
     sizes = ['0-0.1', '0.1-0.2', '0.2-0.4', '0.4-1']
@@ -372,6 +372,20 @@ def calc_model_complexity():
     print('ChocolateNet\'s flops = {} and its params = {}'.format(flops, params))
 
 
+def calc_fps(n):
+    model = ChocolateNet().cuda()
+    start_time = time.perf_counter()
+
+    for i in range(n):
+        x = torch.randn(16, 3, 352, 352).cuda()
+        model.forward(x)
+
+    end_time = time.perf_counter()
+    total_time = end_time - start_time
+    fps = n / total_time
+    print('ChocolateNet\'s fps = {:2f}'.format(fps))
+
+
 class ExpModel(nn.Module):
 
     def __init__(self):
@@ -389,11 +403,16 @@ class ExpModel(nn.Module):
         self.conv3 = MyConv(320, 32, 1, is_act=False)
         self.conv4 = MyConv(512, 32, 1, is_act=False)
 
-        self.conv3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv5 = MyConv(32, 32, 3, padding=1)
+        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+
+        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+
+        self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
@@ -409,15 +428,18 @@ class ExpModel(nn.Module):
         x4 = self.conv4(x4)
 
         # 后两个上采样，三个特征图做减法，减出有差异的边界像素
-        x3_2 = self.conv3_2(abs(self.up(x3) - x2))  # 2,3层异同点
-        x4_2 = self.conv4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
-        x4_3 = self.conv4_3(abs(self.up(x4) - x3))  # 3,4层异同点
-        x4_3_2 = self.conv4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
+        x3_2 = self.convs3_2(abs(self.up(x3) - x2))  # 2,3层异同点
+        x4_2 = self.convs4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
+        x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
+        x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
 
-        # 取反
-        wd = torch.sigmoid(x4_3_2)
-        res = wd.mul(x2)
+        o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
+        o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
+        o4_3 = self.convm4_3(self.up(x4)) * x3 * x4_3
+
+        res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
+        res *= x4_3_2
 
         return res
 
@@ -458,8 +480,10 @@ if __name__ == '__main__':
     #             'CVC-ClinicDB': [612, 106, 219, 194, 93], 'CVC-ColonDB': [380, 215, 93, 42, 30],
     #             'ETIS-LaribPolypDB': [196, 151, 27, 18, 0], 'Kvasir': [1000, 167, 317, 339, 177],
     #             'all': [3248, 1434, 849, 658, 307]}
-    # draw_distr_graph(sum_dict)
+    # draw_graph(sum_dict)
 
     # calc_model_complexity()  # ChocolateNet's flops = 10.48 GMac and its params = 25.12 M(2024/04/15 20:41)
 
-    test_boundary_attention()
+    calc_fps(10)
+
+    # test_boundary_attention()
