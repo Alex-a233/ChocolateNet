@@ -30,29 +30,29 @@ class RFBBlock(nn.Module):
         super(RFBBlock, self).__init__()
 
         self.branch0 = nn.Sequential(
-            MyConv(in_channel, out_channel, 1),
+            MyConv(in_channel, out_channel, 1, is_act=False),
         )
         self.branch1 = nn.Sequential(
-            MyConv(in_channel, out_channel, 1),
-            MyConv(out_channel, out_channel, kernel_size=(1, 3), padding=(0, 1)),
-            MyConv(out_channel, out_channel, kernel_size=(3, 1), padding=(1, 0)),
-            MyConv(out_channel, out_channel, 3, padding=3, dilation=3)
+            MyConv(in_channel, out_channel, 1, is_act=False),
+            MyConv(out_channel, out_channel, kernel_size=(1, 3), padding=(0, 1), is_act=False),
+            MyConv(out_channel, out_channel, kernel_size=(3, 1), padding=(1, 0), is_act=False),
+            MyConv(out_channel, out_channel, 3, padding=3, dilation=3, is_act=False)
         )
         self.branch2 = nn.Sequential(
-            MyConv(in_channel, out_channel, 1),
-            MyConv(out_channel, out_channel, kernel_size=(1, 5), padding=(0, 2)),
-            MyConv(out_channel, out_channel, kernel_size=(5, 1), padding=(2, 0)),
-            MyConv(out_channel, out_channel, 3, padding=5, dilation=5)
+            MyConv(in_channel, out_channel, 1, is_act=False),
+            MyConv(out_channel, out_channel, kernel_size=(1, 5), padding=(0, 2), is_act=False),
+            MyConv(out_channel, out_channel, kernel_size=(5, 1), padding=(2, 0), is_act=False),
+            MyConv(out_channel, out_channel, 3, padding=5, dilation=5, is_act=False)
         )
         self.branch3 = nn.Sequential(
-            MyConv(in_channel, out_channel, 1),
-            MyConv(out_channel, out_channel, kernel_size=(1, 7), padding=(0, 3)),
-            MyConv(out_channel, out_channel, kernel_size=(7, 1), padding=(3, 0)),
-            MyConv(out_channel, out_channel, 3, padding=7, dilation=7)
+            MyConv(in_channel, out_channel, 1, is_act=False),
+            MyConv(out_channel, out_channel, kernel_size=(1, 7), padding=(0, 3), is_act=False),
+            MyConv(out_channel, out_channel, kernel_size=(7, 1), padding=(3, 0), is_act=False),
+            MyConv(out_channel, out_channel, 3, padding=7, dilation=7, is_act=False)
         )
 
-        self.conv_cat = MyConv(4 * out_channel, out_channel, 3, padding=1)
-        self.conv_res = MyConv(in_channel, out_channel, 1)
+        self.conv_cat = MyConv(4 * out_channel, out_channel, 3, padding=1, is_act=False)
+        self.conv_res = MyConv(in_channel, out_channel, 1, is_act=False)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -139,10 +139,10 @@ class FeatureAggregation(nn.Module):
     #     out = self.scconv(out)
     #     return out
 
-    def __init__(self, num_in=32, plane_mid=16, mids=4, normalize=False):
+    def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):
         super(FeatureAggregation, self).__init__()
         self.normalize = normalize
-        self.num_s = plane_mid
+        self.num_s = num_s
         self.num_n = mids * mids
         self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
 

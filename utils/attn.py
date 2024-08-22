@@ -124,11 +124,16 @@ class BoundaryAttention(nn.Module):
         self.conv3 = MyConv(320, 32, 1, is_act=False)
         self.conv4 = MyConv(512, 32, 1, is_act=False)
 
-        self.conv3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.conv5 = MyConv(32, 32, 3, padding=1)
+        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+
+        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+
+        self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
@@ -145,15 +150,18 @@ class BoundaryAttention(nn.Module):
         x4 = self.conv4(x4)
 
         # 后两个上采样，三个特征图做减法，减出有差异的边界像素
-        x3_2 = self.conv3_2(abs(self.up(x3) - x2))  # 2,3层异同点
-        x4_2 = self.conv4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
-        x4_3 = self.conv4_3(abs(self.up(x4) - x3))  # 3,4层异同点
-        x4_3_2 = self.conv4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
+        x3_2 = self.convs3_2(abs(self.up(x3) - x2))  # 2,3层异同点
+        x4_2 = self.convs4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
+        x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
+        x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
 
-        # 取反
-        wd = torch.sigmoid(x4_3_2)
-        res = wd.mul(x2)
+        o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
+        o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
+        o4_3 = self.convm4_3(self.up(x4)) * x3 * x4_3
+
+        res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
+        res *= x4_3_2
 
         return res
 

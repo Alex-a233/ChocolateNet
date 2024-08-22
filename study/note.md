@@ -263,296 +263,215 @@ mIoU更注重大错误,而mDice则更关注整体的相似程度。在实际应�
 
 因此,建议在中文表述时,可以分别使用"归一化"和"正则化"这两个术语。当需要更加精确地表述时,也可以使用"规范化"和"规则化"作为替代。
 
-#### sa/ca的4种情况
+#### 如何降低 Feature Fusion Module 的计算复杂度和参数量？
 
-##### case 1
-t * sa(x) + t & t * ca(x) + t
+要降低自注意力融合代码的计算复杂度,可以考虑以下几种方法:
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python .\train.py
-Training start and it is time about 2024-08-14 19:35:59.507567
-current time 2024-08-14 19:36:20.618345, epoch [001/060], step [0010/0091], loss:1.105005]
-current time 2024-08-14 19:36:25.124100, epoch [001/060], step [0020/0091], loss:0.865719]
-current time 2024-08-14 19:36:29.814206, epoch [001/060], step [0030/0091], loss:0.478080]
-current time 2024-08-14 19:36:34.413779, epoch [001/060], step [0040/0091], loss:0.537183]
-current time 2024-08-14 19:36:39.038882, epoch [001/060], step [0050/0091], loss:0.298564]
-current time 2024-08-14 19:36:43.715012, epoch [001/060], step [0060/0091], loss:0.322902]
-current time 2024-08-14 19:36:48.330155, epoch [001/060], step [0070/0091], loss:0.393134]
-current time 2024-08-14 19:36:53.019298, epoch [001/060], step [0080/0091], loss:0.369544]
-current time 2024-08-14 19:36:57.709206, epoch [001/060], step [0090/0091], loss:0.306635]
-current time 2024-08-14 19:36:58.178253, epoch [001/060], step [0091/0091], loss:0.560732]
-current time 2024-08-14 19:37:26.810532, epoch 1 & best model's mdice 0.571743859649123
-dataset: CVC-300 & mdice: 0.627000
-dataset: CVC-ClinicDB & mdice: 0.683723
-dataset: CVC-ColonDB & mdice: 0.560646
-dataset: ETIS-LaribPolypDB & mdice: 0.435681
-dataset: Kvasir & mdice: 0.778019
-current time 2024-08-14 19:37:38.616508, epoch [002/060], step [0010/0091], loss:0.415245]
-current time 2024-08-14 19:37:43.292961, epoch [002/060], step [0020/0091], loss:0.251475]
-current time 2024-08-14 19:37:47.935899, epoch [002/060], step [0030/0091], loss:0.196316]
-current time 2024-08-14 19:37:52.689646, epoch [002/060], step [0040/0091], loss:0.391812]
-current time 2024-08-14 19:37:57.475311, epoch [002/060], step [0050/0091], loss:0.214339]
-current time 2024-08-14 19:38:02.056530, epoch [002/060], step [0060/0091], loss:0.240422]
-current time 2024-08-14 19:38:06.571671, epoch [002/060], step [0070/0091], loss:0.259248]
-current time 2024-08-14 19:38:11.109595, epoch [002/060], step [0080/0091], loss:0.204140]
-current time 2024-08-14 19:38:15.676276, epoch [002/060], step [0090/0091], loss:0.192206]
-current time 2024-08-14 19:38:16.020028, epoch [002/060], step [0091/0091], loss:0.197719]
-current time 2024-08-14 19:38:44.979839, epoch 2 & best model's mdice 0.621898120300752
-dataset: CVC-300 & mdice: 0.689562
-dataset: CVC-ClinicDB & mdice: 0.726032
-dataset: CVC-ColonDB & mdice: 0.605634
-dataset: ETIS-LaribPolypDB & mdice: 0.505795
-dataset: Kvasir & mdice: 0.806103
+1. **减少输入通道数**:
+   - 降低输入特征`x1`和`x2`的通道数,这样可以减少后续卷积操作的计算量。
+   - 可以在网络的前几层就进行通道数的减少,而不是等到`FeatureAggregation`层再进行。
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python .\train.py
-Training start and it is time about 2024-08-14 20:00:39.691647
-current time 2024-08-14 20:00:56.781015, epoch [001/060], step [0010/0091], loss:1.748868]
-current time 2024-08-14 20:01:01.345301, epoch [001/060], step [0020/0091], loss:0.956753]
-current time 2024-08-14 20:01:05.909420, epoch [001/060], step [0030/0091], loss:0.855990]
-current time 2024-08-14 20:01:10.412483, epoch [001/060], step [0040/0091], loss:0.879858]
-current time 2024-08-14 20:01:14.978800, epoch [001/060], step [0050/0091], loss:0.509154]
-current time 2024-08-14 20:01:19.513865, epoch [001/060], step [0060/0091], loss:0.578256]
-current time 2024-08-14 20:01:24.064992, epoch [001/060], step [0070/0091], loss:0.506592]
-current time 2024-08-14 20:01:28.615644, epoch [001/060], step [0080/0091], loss:0.479716]
-current time 2024-08-14 20:01:33.418401, epoch [001/060], step [0090/0091], loss:0.409645]
-current time 2024-08-14 20:01:33.838536, epoch [001/060], step [0091/0091], loss:0.458251]
-current time 2024-08-14 20:02:03.981744, epoch 1 & best model's mdice 0.4351238095238097
-dataset: CVC-300 & mdice: 0.378788
-dataset: CVC-ClinicDB & mdice: 0.544492
-dataset: CVC-ColonDB & mdice: 0.421031
-dataset: ETIS-LaribPolypDB & mdice: 0.321008
-dataset: Kvasir & mdice: 0.678337
-current time 2024-08-14 20:02:14.853362, epoch [002/060], step [0010/0091], loss:0.296382]
-current time 2024-08-14 20:02:19.447269, epoch [002/060], step [0020/0091], loss:0.247924]
-current time 2024-08-14 20:02:23.980784, epoch [002/060], step [0030/0091], loss:0.229834]
-current time 2024-08-14 20:02:28.540036, epoch [002/060], step [0040/0091], loss:0.307743]
-current time 2024-08-14 20:02:33.200494, epoch [002/060], step [0050/0091], loss:0.324711]
-current time 2024-08-14 20:02:37.774886, epoch [002/060], step [0060/0091], loss:0.230363]
-current time 2024-08-14 20:02:42.450656, epoch [002/060], step [0070/0091], loss:0.225221]
-current time 2024-08-14 20:02:47.298282, epoch [002/060], step [0080/0091], loss:0.211462]
-current time 2024-08-14 20:02:52.242147, epoch [002/060], step [0090/0091], loss:0.284495]
-current time 2024-08-14 20:02:52.632768, epoch [002/060], step [0091/0091], loss:0.268746]
-current time 2024-08-14 20:03:20.977576, epoch 2 & best model's mdice 0.5659542606516291
-dataset: CVC-300 & mdice: 0.584975
-dataset: CVC-ClinicDB & mdice: 0.683116
-dataset: CVC-ColonDB & mdice: 0.546582
-dataset: ETIS-LaribPolypDB & mdice: 0.443660
-dataset: Kvasir & mdice: 0.795212
+2. **采用更高效的注意力机制**:
+   - 目前使用的注意力机制是基于矩阵乘法的全连接注意力,这种方式计算量较大。
+   - 可以尝试使用更高效的注意力机制,如局部注意力或者稀疏注意力。这些方法可以在保持性能的同时大幅降低计算复杂度。
 
-##### case 2
-t * sa(x) & t * ca(x)
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python .\train.py
-Training start and it is time about 2024-08-14 19:56:26.766645
-current time 2024-08-14 19:56:43.630278, epoch [001/060], step [0010/0091], loss:1.036459]
-current time 2024-08-14 19:56:48.274583, epoch [001/060], step [0020/0091], loss:0.710142]
-current time 2024-08-14 19:56:53.042925, epoch [001/060], step [0030/0091], loss:0.533130]
-current time 2024-08-14 19:56:57.778734, epoch [001/060], step [0040/0091], loss:0.327218]
-current time 2024-08-14 19:57:02.470212, epoch [001/060], step [0050/0091], loss:0.364748]
-current time 2024-08-14 19:57:07.192751, epoch [001/060], step [0060/0091], loss:0.346039]
-current time 2024-08-14 19:57:11.883915, epoch [001/060], step [0070/0091], loss:0.445174]
-current time 2024-08-14 19:57:16.606527, epoch [001/060], step [0080/0091], loss:0.296955]
-current time 2024-08-14 19:57:21.296486, epoch [001/060], step [0090/0091], loss:0.320694]
-current time 2024-08-14 19:57:21.734472, epoch [001/060], step [0091/0091], loss:0.328121]
-current time 2024-08-14 19:57:52.047920, epoch 1 & best model's mdice 0.596416290726817
-dataset: CVC-300 & mdice: 0.652955
-dataset: CVC-ClinicDB & mdice: 0.703005
-dataset: CVC-ColonDB & mdice: 0.577270
-dataset: ETIS-LaribPolypDB & mdice: 0.482834
-dataset: Kvasir & mdice: 0.791787
-current time 2024-08-14 19:58:03.163958, epoch [002/060], step [0010/0091], loss:0.490662]
-current time 2024-08-14 19:58:07.778171, epoch [002/060], step [0020/0091], loss:0.244759]
-current time 2024-08-14 19:58:12.389781, epoch [002/060], step [0030/0091], loss:0.156917]
-current time 2024-08-14 19:58:16.924982, epoch [002/060], step [0040/0091], loss:0.349010]
-current time 2024-08-14 19:58:21.443761, epoch [002/060], step [0050/0091], loss:0.137393]
-current time 2024-08-14 19:58:25.994696, epoch [002/060], step [0060/0091], loss:0.187769]
-current time 2024-08-14 19:58:30.563104, epoch [002/060], step [0070/0091], loss:0.296345]
-current time 2024-08-14 19:58:35.305133, epoch [002/060], step [0080/0091], loss:0.238658]
-current time 2024-08-14 19:58:40.170586, epoch [002/060], step [0090/0091], loss:0.220238]
-current time 2024-08-14 19:58:40.562170, epoch [002/060], step [0091/0091], loss:0.291321]
-current time 2024-08-14 19:59:08.947689, epoch 2 & best model's mdice 0.6379403508771926
-dataset: CVC-300 & mdice: 0.720820
-dataset: CVC-ClinicDB & mdice: 0.771579
-dataset: CVC-ColonDB & mdice: 0.620355
-dataset: ETIS-LaribPolypDB & mdice: 0.514856
-dataset: Kvasir & mdice: 0.813425
+3. **减少特征分辨率**:
+   - 在`FeatureAggregation`层之前,可以使用下采样操作(如步长大于1的卷积或最大池化)来降低特征的分辨率。
+   - 这样可以减少矩阵乘法的规模,从而降低计算复杂度。
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python train.py
-Training start and it is time about 2024-08-14 20:11:37.597673
-current time 2024-08-14 20:11:54.226056, epoch [001/060], step [0010/0091], loss:1.136797]
-current time 2024-08-14 20:11:59.164643, epoch [001/060], step [0020/0091], loss:0.658231]
-current time 2024-08-14 20:12:03.727808, epoch [001/060], step [0030/0091], loss:0.529862]
-current time 2024-08-14 20:12:08.338524, epoch [001/060], step [0040/0091], loss:0.503278]
-current time 2024-08-14 20:12:12.980048, epoch [001/060], step [0050/0091], loss:0.378932]
-current time 2024-08-14 20:12:17.574862, epoch [001/060], step [0060/0091], loss:0.570981]
-current time 2024-08-14 20:12:22.122623, epoch [001/060], step [0070/0091], loss:0.323538]
-current time 2024-08-14 20:12:26.702166, epoch [001/060], step [0080/0091], loss:0.340624]
-current time 2024-08-14 20:12:31.234429, epoch [001/060], step [0090/0091], loss:0.474602]
-current time 2024-08-14 20:12:31.625062, epoch [001/060], step [0091/0091], loss:0.450175]
-current time 2024-08-14 20:12:58.087211, epoch 1 & best model's mdice 0.5496372180451127
-dataset: CVC-300 & mdice: 0.559955
-dataset: CVC-ClinicDB & mdice: 0.674098
-dataset: CVC-ColonDB & mdice: 0.537696
-dataset: ETIS-LaribPolypDB & mdice: 0.412229
-dataset: Kvasir & mdice: 0.780977
-current time 2024-08-14 20:13:08.798939, epoch [002/060], step [0010/0091], loss:0.218200]
-current time 2024-08-14 20:13:13.630137, epoch [002/060], step [0020/0091], loss:0.183955]
-current time 2024-08-14 20:13:18.475622, epoch [002/060], step [0030/0091], loss:0.171760]
-current time 2024-08-14 20:13:23.180763, epoch [002/060], step [0040/0091], loss:0.241456]
-current time 2024-08-14 20:13:27.840359, epoch [002/060], step [0050/0091], loss:0.237110]
-current time 2024-08-14 20:13:32.609207, epoch [002/060], step [0060/0091], loss:0.348848]
-current time 2024-08-14 20:13:37.181229, epoch [002/060], step [0070/0091], loss:0.215064]
-current time 2024-08-14 20:13:41.723555, epoch [002/060], step [0080/0091], loss:0.256402]
-current time 2024-08-14 20:13:46.264464, epoch [002/060], step [0090/0091], loss:0.196698]
-current time 2024-08-14 20:13:46.608582, epoch [002/060], step [0091/0091], loss:0.192516]
-current time 2024-08-14 20:14:14.800235, epoch 2 & best model's mdice 0.6053708020050123
-dataset: CVC-300 & mdice: 0.638175
-dataset: CVC-ClinicDB & mdice: 0.742553
-dataset: CVC-ColonDB & mdice: 0.595007
-dataset: ETIS-LaribPolypDB & mdice: 0.463123
-dataset: Kvasir & mdice: 0.818824
+4. **采用更高效的卷积实现**:
+   - 目前使用的是标准的二维卷积,可以考虑使用更高效的卷积实现,如depthwise可分离卷积。
+   - 这种方式可以在保持感受野的同时大幅降低参数量和计算复杂度。
 
-##### case 3
-t + sa(x) & t + ca(x)
+5. **采用张量分解技术**:
+   - 可以尝试对权重矩阵进行分解,将全连接操作分解为多个低秩矩阵乘法。
+   - 这种方法可以在保持模型表达能力的同时,大幅降低计算复杂度。
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python train.py
-Training start and it is time about 2024-08-14 20:23:28.580146
-current time 2024-08-14 20:23:45.074478, epoch [001/060], step [0010/0091], loss:1.055376]
-current time 2024-08-14 20:23:49.732868, epoch [001/060], step [0020/0091], loss:0.975379]
-current time 2024-08-14 20:23:54.379216, epoch [001/060], step [0030/0091], loss:0.543417]
-current time 2024-08-14 20:23:58.967560, epoch [001/060], step [0040/0091], loss:0.667515]
-current time 2024-08-14 20:24:03.578917, epoch [001/060], step [0050/0091], loss:0.470577]
-current time 2024-08-14 20:24:08.161749, epoch [001/060], step [0060/0091], loss:0.290832]
-current time 2024-08-14 20:24:12.697217, epoch [001/060], step [0070/0091], loss:0.340640]
-current time 2024-08-14 20:24:17.201922, epoch [001/060], step [0080/0091], loss:0.360224]
-current time 2024-08-14 20:24:21.751363, epoch [001/060], step [0090/0091], loss:0.474772]
-current time 2024-08-14 20:24:22.157622, epoch [001/060], step [0091/0091], loss:0.280107]
-current time 2024-08-14 20:24:48.880353, epoch 1 & best model's mdice 0.48433734335839607
-dataset: CVC-300 & mdice: 0.484822
-dataset: CVC-ClinicDB & mdice: 0.581010
-dataset: CVC-ColonDB & mdice: 0.465502
-dataset: ETIS-LaribPolypDB & mdice: 0.368445
-dataset: Kvasir & mdice: 0.722832
-current time 2024-08-14 20:24:59.447580, epoch [002/060], step [0010/0091], loss:0.235446]
-current time 2024-08-14 20:25:04.002617, epoch [002/060], step [0020/0091], loss:0.350379]
-current time 2024-08-14 20:25:08.516670, epoch [002/060], step [0030/0091], loss:0.236363]
-current time 2024-08-14 20:25:13.079602, epoch [002/060], step [0040/0091], loss:0.192399]
-current time 2024-08-14 20:25:17.586325, epoch [002/060], step [0050/0091], loss:0.262067]
-current time 2024-08-14 20:25:22.113236, epoch [002/060], step [0060/0091], loss:0.347151]
-current time 2024-08-14 20:25:26.623984, epoch [002/060], step [0070/0091], loss:0.209513]
-current time 2024-08-14 20:25:31.348363, epoch [002/060], step [0080/0091], loss:0.229881]
-current time 2024-08-14 20:25:36.097453, epoch [002/060], step [0090/0091], loss:0.233731]
-current time 2024-08-14 20:25:36.474244, epoch [002/060], step [0091/0091], loss:0.197759]
-current time 2024-08-14 20:26:06.273773, epoch 2 & best model's mdice 0.6026141604010024
-dataset: CVC-300 & mdice: 0.657858
-dataset: CVC-ClinicDB & mdice: 0.723581
-dataset: CVC-ColonDB & mdice: 0.587570
-dataset: ETIS-LaribPolypDB & mdice: 0.468213
-dataset: Kvasir & mdice: 0.815063
+总的来说,在保持模型性能的前提下,可以从减少输入通道数、采用更高效的注意力机制、降低特征分辨率、使用更高效的卷积实现以及采用张量分解技术等方面着手,来降低该层的计算复杂度。具体采用哪种方法需要根据实际应用场景和性能要求进行权衡。
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python train.py
-Training start and it is time about 2024-08-14 20:36:36.267429
-current time 2024-08-14 20:36:52.153474, epoch [001/060], step [0010/0091], loss:0.990692]
-current time 2024-08-14 20:36:56.895267, epoch [001/060], step [0020/0091], loss:0.762369]
-current time 2024-08-14 20:37:01.558734, epoch [001/060], step [0030/0091], loss:0.559178]
-current time 2024-08-14 20:37:06.403996, epoch [001/060], step [0040/0091], loss:0.509168]
-current time 2024-08-14 20:37:11.062513, epoch [001/060], step [0050/0091], loss:0.527293]
-current time 2024-08-14 20:37:15.845773, epoch [001/060], step [0060/0091], loss:0.353753]
-current time 2024-08-14 20:37:20.503043, epoch [001/060], step [0070/0091], loss:0.306688]
-current time 2024-08-14 20:37:25.256942, epoch [001/060], step [0080/0091], loss:0.322853]
-current time 2024-08-14 20:37:30.164555, epoch [001/060], step [0090/0091], loss:0.215681]
-current time 2024-08-14 20:37:30.603034, epoch [001/060], step [0091/0091], loss:0.305421]
-current time 2024-08-14 20:38:01.069242, epoch 1 & best model's mdice 0.5670966165413532
-dataset: CVC-300 & mdice: 0.631657
-dataset: CVC-ClinicDB & mdice: 0.672140
-dataset: CVC-ColonDB & mdice: 0.554862
-dataset: ETIS-LaribPolypDB & mdice: 0.433003
-dataset: Kvasir & mdice: 0.772548
-current time 2024-08-14 20:38:11.899422, epoch [002/060], step [0010/0091], loss:0.337265]
-current time 2024-08-14 20:38:16.404892, epoch [002/060], step [0020/0091], loss:0.338213]
-current time 2024-08-14 20:38:21.003954, epoch [002/060], step [0030/0091], loss:0.276791]
-current time 2024-08-14 20:38:25.570255, epoch [002/060], step [0040/0091], loss:0.461264]
-current time 2024-08-14 20:38:30.212139, epoch [002/060], step [0050/0091], loss:0.382952]
-current time 2024-08-14 20:38:34.859280, epoch [002/060], step [0060/0091], loss:0.238794]
-current time 2024-08-14 20:38:39.486795, epoch [002/060], step [0070/0091], loss:0.364118]
-current time 2024-08-14 20:38:44.129722, epoch [002/060], step [0080/0091], loss:0.327127]
-current time 2024-08-14 20:38:48.709507, epoch [002/060], step [0090/0091], loss:0.168766]
-current time 2024-08-14 20:38:49.068911, epoch [002/060], step [0091/0091], loss:0.148009]
-current time 2024-08-14 20:39:16.558148, epoch 2 & best model's mdice 0.6290412280701754
-dataset: CVC-300 & mdice: 0.699937
-dataset: CVC-ClinicDB & mdice: 0.742700
-dataset: CVC-ColonDB & mdice: 0.611489
-dataset: ETIS-LaribPolypDB & mdice: 0.511839
-dataset: Kvasir & mdice: 0.812449
+局部注意力代码
+   ```python
+import torch  
+import torch.nn as nn  
+import torch.nn.functional as F  
 
-##### case 4
-sa(x) & ca(x)
+class LocalAttention(nn.Module):  
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):  
+        super(LocalAttention, self).__init__()  
+        self.in_channels = in_channels  
+        self.out_channels = out_channels  
+        self.kernel_size = kernel_size  
+        self.padding = padding  
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python train.py
-Training start and it is time about 2024-08-14 20:42:35.362847
-current time 2024-08-14 20:42:51.109462, epoch [001/060], step [0010/0091], loss:0.829962]
-current time 2024-08-14 20:42:55.742968, epoch [001/060], step [0020/0091], loss:0.511130]
-current time 2024-08-14 20:43:00.394360, epoch [001/060], step [0030/0091], loss:0.581253]
-current time 2024-08-14 20:43:04.895625, epoch [001/060], step [0040/0091], loss:0.445253]
-current time 2024-08-14 20:43:09.428171, epoch [001/060], step [0050/0091], loss:0.388017]
-current time 2024-08-14 20:43:13.944781, epoch [001/060], step [0060/0091], loss:0.278351]
-current time 2024-08-14 20:43:18.476872, epoch [001/060], step [0070/0091], loss:0.299163]
-current time 2024-08-14 20:43:22.994379, epoch [001/060], step [0080/0091], loss:0.349612]
-current time 2024-08-14 20:43:27.495363, epoch [001/060], step [0090/0091], loss:0.424051]
-current time 2024-08-14 20:43:27.885990, epoch [001/060], step [0091/0091], loss:0.364566]
-current time 2024-08-14 20:43:58.127833, epoch 1 & best model's mdice 0.5219976190476191
-dataset: CVC-300 & mdice: 0.522022
-dataset: CVC-ClinicDB & mdice: 0.639669
-dataset: CVC-ColonDB & mdice: 0.512275
-dataset: ETIS-LaribPolypDB & mdice: 0.383796
-dataset: Kvasir & mdice: 0.756847
-current time 2024-08-14 20:44:08.789323, epoch [002/060], step [0010/0091], loss:0.277664]
-current time 2024-08-14 20:44:13.385644, epoch [002/060], step [0020/0091], loss:0.215530]
-current time 2024-08-14 20:44:17.952789, epoch [002/060], step [0030/0091], loss:0.208028]
-current time 2024-08-14 20:44:22.541219, epoch [002/060], step [0040/0091], loss:0.163194]
-current time 2024-08-14 20:44:27.107612, epoch [002/060], step [0050/0091], loss:0.211754]
-current time 2024-08-14 20:44:31.714680, epoch [002/060], step [0060/0091], loss:0.338157]
-current time 2024-08-14 20:44:36.293932, epoch [002/060], step [0070/0091], loss:0.296657]
-current time 2024-08-14 20:44:40.889343, epoch [002/060], step [0080/0091], loss:0.197675]
-current time 2024-08-14 20:44:45.468443, epoch [002/060], step [0090/0091], loss:0.180621]
-current time 2024-08-14 20:44:45.812207, epoch [002/060], step [0091/0091], loss:0.212945]
-current time 2024-08-14 20:45:14.039427, epoch 2 & best model's mdice 0.61564649122807
-dataset: CVC-300 & mdice: 0.642767
-dataset: CVC-ClinicDB & mdice: 0.751098
-dataset: CVC-ColonDB & mdice: 0.599197
-dataset: ETIS-LaribPolypDB & mdice: 0.489205
-dataset: Kvasir & mdice: 0.825729
+        self.query_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)  
+        self.key_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)  
+        self.value_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)  
 
-(chocolateNet) PS D:\Study\pyspace\ChocolateNet> python train.py
-Training start and it is time about 2024-08-14 20:49:35.789260 
-current time 2024-08-14 20:49:51.260822, epoch [001/060], step [0010/0091], loss:0.927190]
-current time 2024-08-14 20:49:55.887321, epoch [001/060], step [0020/0091], loss:0.658128]
-current time 2024-08-14 20:50:00.393899, epoch [001/060], step [0030/0091], loss:0.579867]
-current time 2024-08-14 20:50:04.927149, epoch [001/060], step [0040/0091], loss:0.453068]
-current time 2024-08-14 20:50:09.554007, epoch [001/060], step [0050/0091], loss:0.603060]
-current time 2024-08-14 20:50:14.087121, epoch [001/060], step [0060/0091], loss:0.466277]
-current time 2024-08-14 20:50:18.620322, epoch [001/060], step [0070/0091], loss:0.238807]
-current time 2024-08-14 20:50:23.200456, epoch [001/060], step [0080/0091], loss:0.290529]
-current time 2024-08-14 20:50:27.733019, epoch [001/060], step [0090/0091], loss:0.375269]
-current time 2024-08-14 20:50:28.139318, epoch [001/060], step [0091/0091], loss:0.304487]
-current time 2024-08-14 20:50:58.048555, epoch 1 & best model's mdice 0.5695850877192984
-dataset: CVC-300 & mdice: 0.598002
-dataset: CVC-ClinicDB & mdice: 0.670719
-dataset: CVC-ColonDB & mdice: 0.560612
-dataset: ETIS-LaribPolypDB & mdice: 0.445694
-dataset: Kvasir & mdice: 0.766755
-current time 2024-08-14 20:51:08.820886, epoch [002/060], step [0010/0091], loss:0.266864]
-current time 2024-08-14 20:51:13.382360, epoch [002/060], step [0020/0091], loss:0.266197]
-current time 2024-08-14 20:51:17.994813, epoch [002/060], step [0030/0091], loss:0.354762]
-current time 2024-08-14 20:51:22.740588, epoch [002/060], step [0040/0091], loss:0.350076]
-current time 2024-08-14 20:51:27.537364, epoch [002/060], step [0050/0091], loss:0.139817]
-current time 2024-08-14 20:51:32.347628, epoch [002/060], step [0060/0091], loss:0.439116]
-current time 2024-08-14 20:51:37.099942, epoch [002/060], step [0070/0091], loss:0.262280]
-current time 2024-08-14 20:51:42.003301, epoch [002/060], step [0080/0091], loss:0.296185]
-current time 2024-08-14 20:51:46.946354, epoch [002/060], step [0090/0091], loss:0.225682]
-current time 2024-08-14 20:51:47.306246, epoch [002/060], step [0091/0091], loss:0.204931]
-current time 2024-08-14 20:52:14.731539, epoch 2 & best model's mdice 0.6134968671679197
-dataset: CVC-300 & mdice: 0.662092
-dataset: CVC-ClinicDB & mdice: 0.747194
-dataset: CVC-ColonDB & mdice: 0.601939
-dataset: ETIS-LaribPolypDB & mdice: 0.477331
-dataset: Kvasir & mdice: 0.812254
+    def forward(self, x):  
+        batch_size, c, h, w = x.size()  
+
+        # 计算query, key, value  
+        query = self.query_conv(x)  
+        key = self.key_conv(x)  
+        value = self.value_conv(x)  
+
+        # 将query, key, value调整为合适的形状  
+        query = query.view(batch_size, -1, h * w).permute(0, 2, 1)  
+        key = key.view(batch_size, -1, h * w)  
+        value = value.view(batch_size, -1, h * w)  
+
+        # 计算局部注意力权重  
+        attention = F.softmax(torch.matmul(query, key) / (self.out_channels ** 0.5), dim=-1)  
+
+        # 应用注意力权重到value  
+        out = torch.matmul(value, attention.permute(0, 2, 1))  
+        out = out.view(batch_size, self.out_channels, h, w)  
+
+        return out
+```
+这个局部注意力层的工作原理如下:
+
+使用3个1x1卷积层分别计算出query、key和value特征。
+将query、key和value特征调整为合适的形状(batch_size, -1, h*w)。
+计算注意力权重矩阵,使用softmax函数对每一个位置的注意力权重进行归一化。
+将value特征与注意力权重相乘得到输出特征。
+相比于全连接注意力,这种局部注意力机制在计算效率和内存消耗上都有较大优势,同时也能保持较好的性能。你可以将这个模块集成到你的网络结构中,并根据实际情况进行调整和优化。
+
+---
+
+稀疏注意力代码
+```python
+import torch
+import torch.nn as nn
+
+class SparseAttention(nn.Module):
+    def __init__(self, in_channels, out_channels, num_heads, sparsity_ratio=0.5):
+        super(SparseAttention, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.num_heads = num_heads
+        self.sparsity_ratio = sparsity_ratio
+
+        self.query_conv = nn.Conv2d(in_channels, out_channels * num_heads, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, out_channels * num_heads, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, out_channels * num_heads, kernel_size=1)
+
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+
+        # 计算query, key, value
+        query = self.query_conv(x).view(b, self.num_heads, self.out_channels, h * w)
+        key = self.key_conv(x).view(b, self.num_heads, self.out_channels, h * w)
+        value = self.value_conv(x).view(b, self.num_heads, self.out_channels, h * w)
+
+        # 计算注意力权重
+        attention = torch.matmul(query.transpose(2, 3), key) / (self.out_channels ** 0.5)
+
+        # 应用稀疏化
+        top_k = int(h * w * self.sparsity_ratio)
+        _, indices = torch.topk(attention, top_k, dim=-1)
+        attention_mask = torch.zeros_like(attention).scatter_(3, indices, 1)
+        attention = attention * attention_mask
+
+        # 应用注意力权重到value
+        out = torch.matmul(value, attention.transpose(2, 3))
+        out = out.view(b, self.num_heads * self.out_channels, h, w)
+
+        return out
+```
+
+这个稀疏注意力层的工作原理如下:
+
+1. 使用3个1x1卷积层分别计算出query、key和value特征,并将它们调整为合适的形状(batch_size, num_heads, out_channels, h*w)。
+2. 计算注意力权重矩阵,使用矩阵乘法计算query和key的点积,并除以一个缩放因子(out_channels^0.5)。
+3. 应用稀疏化操作,只保留注意力权重最大的top-k个值,其他位置的值设为0。
+4. 将value特征与稀疏注意力权重相乘得到输出特征。
+
+这种稀疏注意力机制通过只计算重要的注意力权重,可以大幅提高计算效率和降低内存消耗。通过调整sparsity_ratio参数,可以平衡性能和效率。你可以将这个模块集成到你的网络结构中,并根据实际情况进行调整和优化。
+
+可分离卷积
+```python
+import torch
+import torch.nn as nn
+
+class SeparableConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0, dilation=1, bias=False):
+        super(SeparableConv2d, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size, stride, padding, dilation, groups=in_channels, bias=bias)
+        self.pointwise = nn.Conv2d(in_channels, out_channels, 1, 1, 0, 1, 1, bias=bias)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.pointwise(x)
+        return x
+
+# 使用示例
+in_channels = 64
+out_channels = 128
+kernel_size = 3
+stride = 1
+padding = 1
+
+model = nn.Sequential(
+    SeparableConv2d(in_channels, out_channels, kernel_size, stride, padding),
+    nn.ReLU(),
+    # 其他层
+)
+
+# 输入tensor
+input_tensor = torch.randn(1, in_channels, 56, 56)
+output_tensor = model(input_tensor)
+print(output_tensor.shape)  # 输出: torch.Size([1, 128, 56, 56])
+```
+
+在这个例子中,我们定义了一个`SeparableConv2d`类,它实现了可分离卷积。其中:
+
+- `self.conv1`是**深度**方向的卷积,即对每个输入通道单独进行卷积。
+- `self.pointwise`是**通道**方向的卷积,即将深度方向的结果进行1x1卷积,以调整通道数。
+
+在使用示例中,我们创建了一个PyTorch的Sequential模型,将可分离卷积层作为第一个层使用。
+
+通过使用可分离卷积,可以大幅减少参数量和计算量,提高模型的效率和速度。
+
+#### 可分离卷积(Separable Convolution)和深度可分离卷积(Depthwise Separable Convolution)是两个不同的概念,虽然它们都可以用来减少模型的参数量和计算量。
+
+**可分离卷积(Separable Convolution)**:
+- 可分离卷积将一个标准的2D卷积操作分解为两个较低维度的卷积操作,即:
+  1. 沿空间维度(宽度和高度)进行卷积
+  2. 沿通道维度进行1x1卷积
+- 这样可以大幅减少参数数量,因为沿通道维度的卷积只需要1x1的卷积核。
+- 可分离卷积保留了标准2D卷积的全部表达能力。
+
+**深度可分离卷积(Depthwise Separable Convolution)**:
+- 深度可分离卷积将标准2D卷积分解为两个步骤:
+  1. 深度卷积(Depthwise Convolution)
+     - 在每个输入通道上单独进行卷积,不改变通道数
+  2. 逐点卷积(Pointwise Convolution)
+     - 对深度卷积的输出使用1x1卷积,改变通道数
+- 深度可分离卷积比标准2D卷积更加高效,因为它的参数数量和计算复杂度都更低。
+- 但是深度可分离卷积的表达能力比标准2D卷积要弱。
+
+总的来说:
+- 可分离卷积通过分解标准2D卷积来减少参数,但保留了完整的表达能力。
+- 深度可分离卷积通过深度卷积和逐点卷积的组合来进一步减少参数和计算量,但牺牲了一部分表达能力。
+
+深度可分离卷积通常用于轻量级网络(如MobileNet、MobileNetV2等),而可分离卷积则更通用,可以应用于各种类型的网络。
+
+#### 关于 FLOPS
+FLOPS（Floating-Point Operations per Second）是深度学习模型性能评估的一个重要指标。它代表模型每秒可以执行的浮点运算次数。
+
+对于深度学习模型来说,FLOPS 越大通常意味着模型的计算能力越强,可以处理更复杂的任务。但是,FLOPS 并不是唯一重要的指标,还需要考虑其他因素,如模型的参数量、推理时间、能耗等。
+
+总的来说:
+
+1. FLOPS 越大通常意味着模型计算能力越强。但模型也应该兼顾其他性能指标,如推理速度、功耗等。
+
+2. 在实际应用中,需要根据具体场景权衡不同指标,选择合适的模型。有时候一个 FLOPS 较小的模型可能更适合部署在资源受限的设备上。
+
+3. 模型设计时需要在FLOPS、参数量、推理时间等指标之间进行平衡和折衷。不同应用场景对模型性能的侧重点也不尽相同。
+
+总之,FLOPS 是一个重要但不是唯一的指标。需要结合实际应用场景来评估和选择合适的深度学习模型。
