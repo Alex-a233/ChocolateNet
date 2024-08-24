@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.toy_block import MyConv, CFBlock
+from utils.toy_block import MyConv
 
 
 class ReverseAttention(nn.Module):
@@ -114,11 +114,6 @@ class BoundaryAttention(nn.Module):
 
     def __init__(self):
         super(BoundaryAttention, self).__init__()
-        # self.conv2 = MyConv(128, 32, 1, is_act=False)
-        # self.conv3 = MyConv(320, 32, 1, is_act=False)
-        # self.conv4 = MyConv(512, 32, 1, is_act=False)
-        # self.cfb = CFBlock(32)
-
         # test new ba
         self.conv2 = MyConv(128, 32, 1, is_act=False)
         self.conv3 = MyConv(320, 32, 1, is_act=False)
@@ -138,12 +133,6 @@ class BoundaryAttention(nn.Module):
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
     def forward(self, x2, x3, x4):
-        # x2 = self.conv2(x2)
-        # x3 = self.conv3(x3)
-        # x4 = self.conv4(x4)
-        # res = self.cfb(x4, x3, x2)
-        # return res
-
         # test new ba
         x2 = self.conv2(x2)
         x3 = self.conv3(x3)
@@ -177,11 +166,10 @@ class ChannelAttention(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        t = x
         avg_res = self.fc2(self.relu(self.fc1(self.avg_pool(x))))
         max_res = self.fc2(self.relu(self.fc1(self.max_pool(x))))
         res = avg_res + max_res
-        return t * torch.sigmoid(res)
+        return torch.sigmoid(res)
 
 
 class SpatialAttention(nn.Module):
@@ -193,12 +181,11 @@ class SpatialAttention(nn.Module):
         self.conv = MyConv(2, 1, kernel_size, padding=padding, is_bn=False, is_act=False)
 
     def forward(self, x):
-        t = x
         avg_res = torch.mean(x, dim=1, keepdim=True)
         max_res, _ = torch.max(x, dim=1, keepdim=True)
         res = torch.cat([avg_res, max_res], dim=1)
         res = self.conv(res)
-        return t * torch.sigmoid(res)
+        return torch.sigmoid(res)
 
 
 class StructureAttention(nn.Module):

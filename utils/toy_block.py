@@ -153,28 +153,27 @@ class FeatureAggregation(nn.Module):
 
     def forward(self, x, edge):
         n, c, h, w = x.size()
-        x_state_reshaped = self.conv_state(x).view(n, self.num_s, -1)
-        x_proj = self.conv_proj(x)
-
         edge = F.interpolate(edge, (h, w))
         edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
 
+        # Construct projection matrix
+        x_state_reshaped = self.conv_state(x).view(n, self.num_s, -1)
+        x_proj = self.conv_proj(x)
         x_mask = x_proj * edge
         x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(n, self.num_s, -1)
-
         x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(n, self.num_s, -1))
         x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
-
         x_rproj_reshaped = x_proj_reshaped
-        x_n_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
 
+        # Project and graph reason
+        x_n_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
         if self.normalize:
             x_n_state = x_n_state * (1. / x_state_reshaped.size(2))
-
         x_n_rel = self.gcn(x_n_state)
-        x_state_reshaped = torch.matmul(x_n_rel, x_rproj_reshaped)
 
+        # Reproject
+        x_state_reshaped = torch.matmul(x_n_rel, x_rproj_reshaped)
         x_state = x_state_reshaped.view(n, self.num_s, *x.size()[2:])
-        out = x + (self.conv_extend(x_state))
+        out = x + self.conv_extend(x_state)
 
         return out
