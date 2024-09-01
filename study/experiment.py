@@ -464,8 +464,60 @@ def test_boundary_attention():
         break
 
 
-if __name__ == '__main__':
+def find_goal():
+    kvasir = [0.909, 0.871, 0.907, 0.926, 0.948, 0.897, 0.913, 0.914, 0.926, 0.913, 0.919, 0.959, 0.902, 0.910, 0.9,
+              0.782, 0.921, 0.927, 0.898, 0.950, 0.918, 0.918, 0.939, 0.924, 0.912, 0.917, 0.917, 0.907, 0.904, 0.912,
+              0.898, 0.913, 0.813, 0.821, 0.818]
+    kvasir.sort()
+    print(kvasir)
+    print('Kvasir best mdice {}'.format(max(kvasir)))
 
+    clinicdb = [0.89, 0.766, 0.942, 0.943, 0.945, 0.923, 0.919, 0.93, 0.934, 0.935, 0.921, 0.928, 0.91, 0.579, 0.926,
+                0.936, 0.946, 0.947, 0.936, 0.918, 0.947, 0.932, 0.932, 0.916, 0.937, 0.921, 0.916, 0.926, 0.899, 0.796,
+                0.794, 0.823]
+    clinicdb.sort()
+    print(clinicdb)
+    print('CVC-ClinicDB best mdice {}'.format(max(clinicdb)))
+
+    colondb = [0.744, 0.834, 0.825, 0.837, 0.785, 0.774, 0.797, 0.788, 0.788, 0.867, 0.894, 0.83, 0.73, 0.468, 0.814,
+               0.824, 0.935, 0.772, 0.819, 0.811, 0.731, 0.777, 0.808, 0.755, 0.753, 0.709, 0.483, 0.512]
+    colondb.sort()
+    print(colondb)
+    print('CVC-ColonDB best mdice {}'.format(max(colondb)))
+
+    t = [0.932, 0, 0, 0.905, 0.924, 0, 0.909, 0.894, 0.909, 0.893, 0.9, 0.924, 0.924, 0.726, 0.726, 0.905, 0.905, 0.903,
+         0.903, 0.906, 0.906, 0.887, 0.892, 0.9, 0.869, 0.888, 0.871, 0.866, 0.831, 0.707, 0.71]
+    t.sort()
+    print(t)
+    print('CVC-300 best mdice {}'.format(max(t)))
+
+    etis = [0.743, 0.823, 0.801, 0.777, 0.749, 0.759, 0.726, 0.78, 0.78, 0.903, 0.797, 0.551, 0.788, 0.823, 0.935,
+            0.747,
+            0.842, 0.801, 0.677, 0.762, 0.787, 0.719, 0.75, 0.766, 0.628, 0.401, 0.398]
+    etis.sort()
+    print(etis)
+    print('ETIS best mdice {}'.format(max(etis)))
+
+    bkai = [0.66, 0.902]
+    print('BKAI best mdice {}'.format(max(bkai)))
+
+    # Kvasir: 0.959
+    # CVC-ClinicDB: 0.947
+    # CVC - ColonDB: 0.935
+    # CVC - 300: 0.932
+    # ETIS: 0.935
+    # BKAI: 0.902
+
+
+def test_param():
+    x = torch.randn(3, 2, 4, 4)
+    print(x)
+    g = nn.Parameter(torch.zeros(1))
+    x = x * g + x
+    print(x)
+
+
+if __name__ == '__main__':
     # progress_bar()
 
     # experiment_of_dye()
@@ -484,6 +536,10 @@ if __name__ == '__main__':
 
     # calc_model_complexity()  # ChocolateNet's flops = 10.48 GMac and its params = 25.12 M(2024/04/15 20:41)
 
-    calc_fps(10)
+    # calc_fps(10)
 
     # test_boundary_attention()
+
+    # find_goal()
+
+    test_param()

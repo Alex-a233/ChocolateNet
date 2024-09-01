@@ -4,22 +4,26 @@ from datetime import datetime
 
 import torch
 import torch.nn.functional as F
+import torchvision.utils as tvu
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from model import ChocolateNet
 from utils.dataloader import TrainSet
 from utils.loss_func import wbce_wdice
-from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss
+from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient
 
 
-def train(model, trainset_loader, args):  # sup,
+def train(model, trainset_loader, args):
     # size_rates = [0.5, 0.75, 1, 1.25, 1.5]
     size_rates = [0.75, 1, 1.25]
     params = model.parameters()
     optimizer = AdamW(params, args.lr, weight_decay=args.weight_decay)
+    print(optimizer)
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-6, verbose=True)
     scaler = GradScaler(enabled=True)
     logger = SummaryWriter(args.log_path)
     total_step = len(trainset_loader)
@@ -27,13 +31,11 @@ def train(model, trainset_loader, args):  # sup,
     best_mdice = 0.0
     early_stopping_cnt = 0
 
-    print(optimizer)
     for epoch in range(1, args.epoch + 1):
 
         for step, pairs in enumerate(trainset_loader, start=1):
 
             for size_rate in size_rates:
-
                 images, masks = pairs
                 images = images.cuda().float()
                 masks = masks.cuda().float()
@@ -49,11 +51,9 @@ def train(model, trainset_loader, args):  # sup,
                 # use amp.autocast
                 with autocast():
                     pred = model(images)
-                    # calculate total loss
                     bce_loss, dice_loss = wbce_wdice(pred, masks)
-                    # sup_loss = sup(preds[2], masks)
+                    # calculate total loss
                     loss = (bce_loss + dice_loss).mean()
-                    # + 0.1 * sup_loss
 
                 try:
                     scaler.scale(loss).backward()
@@ -62,15 +62,13 @@ def train(model, trainset_loader, args):  # sup,
                     print_save(f'it is time about {datetime.now()} exception occur =>\n{ex}', args.log_path,
                                args.log_name)
 
-                # clip_gradient(optimizer, args.clip)
-
+                clip_gradient(optimizer, args.clip)
                 scaler.step(optimizer)
                 scaler.update()
 
                 if size_rate == 1:
                     # record the changes of learning rate & total loss
                     logger.add_scalars('lr', {'lr': optimizer.param_groups[0]['lr']}, global_step=global_step)
-                    # 'sup_loss': sup_loss.mean().item(),
                     logger.add_scalars('loss', {'bce': bce_loss.mean().item(), 'dice': dice_loss.mean().item(),
                                                 'total_loss': loss.item()}, global_step=global_step)
 
@@ -81,19 +79,24 @@ def train(model, trainset_loader, args):  # sup,
 
         mean_dice, record = choose_best(model, args)
 
+        # if mdice doesn't increase over 10 epochs, scheduler will decrease lr by multiply 5e-1
+        scheduler.step(mean_dice)
         # save the best model weights args if cur mdice better than ever before
         if mean_dice > best_mdice:
+            # visualized the pred
+            pred_image = tvu.make_grid(pred, normalize=False, scale_each=True)
+            logger.add_image('preds/', pred_image, epoch)
             best_mdice = mean_dice
             # create save path
             empty_create(args.save_path)
             torch.save(model.state_dict(), args.save_path + 'ChocolateNet' + str(epoch) + '.pth')
             print_save('current time %s, epoch %s & best model\'s mdice %s' % (datetime.now(), epoch, best_mdice),
                        args.log_path, args.log_name)
-
+            # print and save performance of model
             for k, v in record.items():
                 print_save('dataset: {} & mdice: {:04f}'.format(k, v), args.log_path, args.log_name)
 
-            # if it generates a better best mdice, set early_stopping_cnt to 0
+            # if it generates a better best_mdice, reset early_stopping_cnt to 0
             early_stopping_cnt = 0
         else:
             early_stopping_cnt += 1
@@ -110,7 +113,7 @@ def train(model, trainset_loader, args):  # sup,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='here is training arguments')
-    parser.add_argument('--epoch', type=int, default=80, help='training epochs')
+    parser.add_argument('--epoch', type=int, default=90, help='training epochs')
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
@@ -131,10 +134,7 @@ if __name__ == '__main__':
     # torch.autograd.set_detect_anomaly(True)
 
     model = ChocolateNet().cuda()
-    # sup = Supervisor().cuda()
-
     model.train()
-    # sup.eval()
 
     train_set = TrainSet(args)
     trainset_loader = DataLoader(dataset=train_set, batch_size=args.batch_size,
@@ -144,7 +144,6 @@ if __name__ == '__main__':
     print_save('$' * 20 + ' Training start and it is time about {} '.format(start_time) + '$' * 20, args.log_path,
                args.log_name)
 
-    # train(model, sup, trainset_loader, args)
     train(model, trainset_loader, args)
 
     end_time = datetime.now()

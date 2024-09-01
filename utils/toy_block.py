@@ -153,7 +153,6 @@ class FeatureAggregation(nn.Module):
 
     def forward(self, x, edge):
         n, c, h, w = x.size()
-        edge = F.interpolate(edge, (h, w))
         edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
 
         # Construct projection matrix

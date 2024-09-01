@@ -49,8 +49,8 @@ if __name__ == '__main__':
     pred = model(x)
     print(pred.shape)
 
-    # CVC-300,                       dice: 0.888258
-    # CVC-ClinicDB,             dice: 0.942313
-    # CVC-ColonDB,             dice: 0.809464
-    # ETIS-LaribPolypDB, dice: 0.793887
-    # Kvasir,                            dice: 0.927440
+    # CVC-300                       dice: 0.9
+    # CVC-ClinicDB             dice: 0.9
+    # CVC-ColonDB             dice: 0.9
+    # ETIS-LaribPolypDB dice: 0.9
+    # Kvasir                            dice: 0.9
