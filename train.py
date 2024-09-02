@@ -23,7 +23,7 @@ def train(model, trainset_loader, args):
     params = model.parameters()
     optimizer = AdamW(params, args.lr, weight_decay=args.weight_decay)
     print(optimizer)
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, min_lr=1e-6, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, verbose=True, min_lr=1e-6)
     scaler = GradScaler(enabled=True)
     logger = SummaryWriter(args.log_path)
     total_step = len(trainset_loader)
@@ -85,7 +85,7 @@ def train(model, trainset_loader, args):
         if mean_dice > best_mdice:
             # visualized the pred
             pred_image = tvu.make_grid(pred, normalize=False, scale_each=True)
-            logger.add_image('preds/', pred_image, epoch)
+            logger.add_image('{}/preds/'.format(epoch), pred_image, epoch)
             best_mdice = mean_dice
             # create save path
             empty_create(args.save_path)

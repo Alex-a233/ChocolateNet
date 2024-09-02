@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
         for i in tqdm(range(num_mask), colour='#e946ef'):
             image, mask, name = test_set.load_data()
-            mask = np.asnumpy(mask, np.float32)  # exchange mask's height and width
+            mask = np.array(mask, np.float32)  # exchange mask's height and width
 
             image = image.cuda()
             pred = model(image)

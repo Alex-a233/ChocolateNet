@@ -114,19 +114,35 @@ class BoundaryAttention(nn.Module):
 
     def __init__(self):
         super(BoundaryAttention, self).__init__()
-        # test new ba
+        # test new ba with no act
+        # self.conv2 = MyConv(128, 32, 1, is_act=False)
+        # self.conv3 = MyConv(320, 32, 1, is_act=False)
+        # self.conv4 = MyConv(512, 32, 1, is_act=False)
+        #
+        # self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        #
+        # self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        #
+        # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
+
+        # try act
         self.conv2 = MyConv(128, 32, 1, is_act=False)
         self.conv3 = MyConv(320, 32, 1, is_act=False)
         self.conv4 = MyConv(512, 32, 1, is_act=False)
 
-        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
-        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
         self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
 
