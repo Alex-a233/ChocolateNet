@@ -1,8 +1,6 @@
-/log/
 /dataset/
+/log/
 /predicts/
 /pretrained_args/
-/snapshot/
-/study/
-/useful_articles/
 /record/
+/snapshot/
