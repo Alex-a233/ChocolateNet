@@ -97,6 +97,13 @@ class TestSet:
         self.index += 1
         return image, mask, name
 
+    def get_data(self, i):  # for retest failed cases
+        image = Image.open(self.images[i]).convert('RGB')
+        mask = Image.open(self.masks[i]).convert('L')
+        image = self.image_transform(image).unsqueeze(0)
+        name = self.images[i].split('/')[-1]
+        return image, mask, name
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

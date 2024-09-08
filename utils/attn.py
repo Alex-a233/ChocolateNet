@@ -130,10 +130,26 @@ class BoundaryAttention(nn.Module):
         #
         # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
 
-        # try act
-        self.conv2 = MyConv(128, 32, 1, is_act=False)
-        self.conv3 = MyConv(320, 32, 1, is_act=False)
-        self.conv4 = MyConv(512, 32, 1, is_act=False)
+        # try act feature extraction convs 2024.09.01
+        # self.conv2 = MyConv(128, 32, 1, is_act=False)
+        # self.conv3 = MyConv(320, 32, 1, is_act=False)
+        # self.conv4 = MyConv(512, 32, 1, is_act=False)
+        #
+        # self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        #
+        # self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        #
+        # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
+
+        # try act all convs 2024.09.02
+        self.conv2 = MyConv(128, 32, 1)
+        self.conv3 = MyConv(320, 32, 1)
+        self.conv4 = MyConv(512, 32, 1)
 
         self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
         self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
@@ -144,7 +160,7 @@ class BoundaryAttention(nn.Module):
         self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
         self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
-        self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
+        self.conv5 = MyConv(96, 32, 3, padding=1)  # TODO: 仅改变通道的话，是否应该用1合适？
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 

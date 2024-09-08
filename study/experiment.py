@@ -16,7 +16,8 @@ from tqdm import tqdm
 
 from backbone.pvtv2 import PvtV2B2
 from model import ChocolateNet
-from utils.dataloader import TrainSet
+from study.model1 import ChocolateNet1
+from utils.dataloader import TrainSet, TestSet
 from utils.toy_block import MyConv
 
 
@@ -509,12 +510,69 @@ def find_goal():
     # BKAI: 0.902
 
 
-def test_param():
-    x = torch.randn(3, 2, 4, 4)
-    print(x)
-    g = nn.Parameter(torch.zeros(1))
-    x = x * g + x
-    print(x)
+def retest_failed_cases():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--test_size', type=int, default=352, help='testing image size')
+    parser.add_argument('--save_path', type=str, default='./snapshot/ChocolateNet.pth')
+    args = parser.parse_args()
+
+    model = ChocolateNet1()
+    model.load_state_dict(torch.load(args.save_path))
+    model.eval()
+    model.cuda()
+
+    # TODO: an experiment for discovery ba_output, sa_output, fa_output
+    failed_cases = {'BKAI-IGH-NEOPOLYP': [14, 819, 853, 945, 951, 568, 492, 342], 'CVC-ClinicDB': [46],
+                    'CVC-ColonDB': [111, 198, 220, 233, 239, 282, 290],
+                    'ETIS-LaribPolypDB': [149, 126, 164, 166, 168, 104]}
+    for testset_name in ['BKAI-IGH-NEOPOLYP', 'CVC-300', 'CVC-ClinicDB', 'CVC-ColonDB', 'ETIS-LaribPolypDB', 'Kvasir']:
+        data_path = './dataset/testset/{}'.format(testset_name)
+        image_path = '{}/images/'.format(data_path)
+        mask_path = '{}/masks/'.format(data_path)
+        test_set = TestSet(image_path, mask_path, args.test_size)
+
+        for i in failed_cases[testset_name]:
+            image, mask, name = test_set.get_data(i)
+            image = image.cuda()
+            model(image)
+    # TODO: an experiment for discovery ba_output, sa_output, fa_output
+
+
+def detect_all_black():
+    failed_cases = {}
+    dir = 'D:\\Study\\PostgraduateStudy\\2024autumn\\chocolatenet_preds\\20240907\\PCS\\'
+
+    for dataset in ['BKAI-IGH-NEOPOLYP', 'CVC-300', 'CVC-ClinicDB', 'CVC-ColonDB', 'ETIS-LaribPolypDB', 'Kvasir']:
+        failed_cases[dataset] = []
+        preds = [dir + dataset + '\\' + pred for pred in os.listdir(dir + dataset) if pred.endswith('.png')]
+
+        for pred in preds:
+            p = cv2.imread(pred, cv2.IMREAD_GRAYSCALE)
+            if (p == 0).all():
+                failed_cases[dataset].append(pred.split('\\')[-1])
+
+    print(failed_cases)
+
+
+def normalize_positive_pixels(tensor):
+    pos_mask = tensor > 0
+    pos_values = tensor[pos_mask]
+    a = pos_values.float().min()
+    b = pos_values.float().max()
+    normalized_pos_values = (pos_values - a) / (b - a)
+    tensor[pos_mask] = normalized_pos_values
+    return tensor
+
+
+def show_boundary(pred, save_path, name):
+    pos_min = pred[pred > 0].float().min()
+    pos_max = pred[pred > 0].float().max()
+    pred[pred > 0] = (pred[pred > 0] - pos_min) / (pos_max - pos_min + 1e-8)
+    neg_min = pred[pred < 0].float().min()
+    neg_max = pred[pred < 0].float().max()
+    pred[pred < 0] = (pred[pred < 0] - neg_min) / (neg_max - neg_min + 1e-8)
+    pred = np.round(pred.data.cpu().numpy() * 255)
+    cv2.imwrite(save_path + name, pred)
 
 
 if __name__ == '__main__':
@@ -542,4 +600,10 @@ if __name__ == '__main__':
 
     # find_goal()
 
-    test_param()
+    # retest_failed_cases()
+
+    # detect_all_black()
+
+    # print(normalize_positive_pixels(torch.tensor([[-1., 2., -3., 4.], [5., -6., 7., -8.]])))
+
+    show_boundary()

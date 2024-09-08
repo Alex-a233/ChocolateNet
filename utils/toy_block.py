@@ -11,7 +11,7 @@ class MyConv(nn.Module):
         self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=kernel_size,
                               stride=stride, padding=padding, dilation=dilation, groups=groups, bias=use_bias)
         self.bn = nn.BatchNorm2d(out_channel)
-        self.relu = nn.ReLU(inplace=True)  # TODO: change ReLU to LeakyReLU, see what will happen
+        self.relu = nn.ReLU6(inplace=True)
         self.is_bn = is_bn
         self.is_act = is_act
 
@@ -148,8 +148,8 @@ class FeatureAggregation(nn.Module):
 
         self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
         self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
-        self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
         self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
+        self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
 
     def forward(self, x, edge):
         n, c, h, w = x.size()
