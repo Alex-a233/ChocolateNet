@@ -36,11 +36,11 @@ class ChocolateNet(nn.Module):
         ba_res = self.ba(x2, x3, x4)  # (bs, 32, 44, 44)
         sa_res = self.sa(x1)  # (bs, 32, 44, 44)
         fa_res = self.fa(ba_res, sa_res)  # (bs, 32, 44, 44)
-        ba_res = self.out_ba(ba_res)  # (bs, 1, 44, 44)
-        fa_res = self.out_fa(fa_res)  # (bs, 1, 44, 44)
+        ba_res = self.out_ba(ba_res)  # (bs, 32, 44, 44)
+        fa_res = self.out_fa(fa_res)  # (bs, 32, 44, 44)
         pred1 = self.up(ba_res)
         pred2 = self.up(fa_res)
-        return pred1 + pred2
+        return pred1 + pred2  # TODO: 换成 pred1 * pred2 会如何？
 
 
 if __name__ == '__main__':

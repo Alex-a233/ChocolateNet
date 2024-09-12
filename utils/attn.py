@@ -111,7 +111,7 @@ class SelfAttention(nn.Module):
 
 
 class BoundaryAttention(nn.Module):
-
+    # TODO: maybe i need to rewrite this module
     def __init__(self):
         super(BoundaryAttention, self).__init__()
         # test new ba with no act
@@ -130,26 +130,10 @@ class BoundaryAttention(nn.Module):
         #
         # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
 
-        # try act feature extraction convs 2024.09.01
-        # self.conv2 = MyConv(128, 32, 1, is_act=False)
-        # self.conv3 = MyConv(320, 32, 1, is_act=False)
-        # self.conv4 = MyConv(512, 32, 1, is_act=False)
-        #
-        # self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        # self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        # self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        # self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        #
-        # self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        # self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        # self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        #
-        # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
-
-        # try act all convs 2024.09.02
-        self.conv2 = MyConv(128, 32, 1)
-        self.conv3 = MyConv(320, 32, 1)
-        self.conv4 = MyConv(512, 32, 1)
+        # last try 2024.09.10 if it can not do better then i will change it
+        self.conv2 = MyConv(128, 32, 1, use_bias=True)
+        self.conv3 = MyConv(320, 32, 1, use_bias=True)
+        self.conv4 = MyConv(512, 32, 1, use_bias=True)
 
         self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
         self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
@@ -160,12 +144,12 @@ class BoundaryAttention(nn.Module):
         self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
         self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
-        self.conv5 = MyConv(96, 32, 3, padding=1)  # TODO: 仅改变通道的话，是否应该用1合适？
+        self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
     def forward(self, x2, x3, x4):
-        # test new ba
+        # # test new ba
         x2 = self.conv2(x2)
         x3 = self.conv3(x3)
         x4 = self.conv4(x4)
@@ -226,7 +210,7 @@ class StructureAttention(nn.Module):
         super(StructureAttention, self).__init__()
         self.sa = SpatialAttention()
         self.ca = ChannelAttention(64)
-        self.conv = MyConv(64, 32, 1, is_act=False)
+        self.conv = MyConv(64, 32, 1, use_bias=True)
 
     def forward(self, x):
         x = self.ca(x) * x
