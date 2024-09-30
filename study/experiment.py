@@ -152,8 +152,8 @@ def calc_mean_std():
     mean /= len(train_loader)
     std /= len(train_loader)
 
-    print(f'Mean: {mean}')
-    print(f'Std: {std}')
+    print(f'mean: {mean}')
+    print(f'std: {std}')
 
 
 class SegmentationDataset(Dataset):
@@ -176,10 +176,17 @@ class SegmentationDataset(Dataset):
         image = Image.open(image_path).convert('RGB')
         mask = Image.open(mask_path).convert('L')
 
+        image = self.transform(image)
+
         image = self.image_transform(image)
         mask = self.image_transform(mask)
 
         return image, mask
+
+    def get_image(self, i):
+        image_path = os.path.join(self.root_dir, 'images', self.image_files[i])
+        image = Image.open(image_path).convert('RGB')
+        return image
 
 
 def mask_to_border(mask):
@@ -575,6 +582,29 @@ def show_boundary(pred, save_path, name):
     cv2.imwrite(save_path + name, pred)
 
 
+def test_new_transforms():
+    transform = transforms.Compose([
+        transforms.RandomRotation(90, expand=False, center=None, fill=0),
+        transforms.RandomVerticalFlip(p=0.5),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.Resize((352, 352)),
+        # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色
+        transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1)),
+        transforms.ToTensor(),
+        # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+    dataset = SegmentationDataset(transform=transform)
+    image = dataset.get_image(0)
+    img0 = np.array(image)
+    cv2.imshow('before aug', img0)
+    cv2.waitKey(0)
+    image = transform(image)
+    img = image.permute(1, 2, 0).data.cpu().numpy()
+    cv2.imshow('after aug', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 if __name__ == '__main__':
     # progress_bar()
 
@@ -606,4 +636,6 @@ if __name__ == '__main__':
 
     # print(normalize_positive_pixels(torch.tensor([[-1., 2., -3., 4.], [5., -6., 7., -8.]])))
 
-    show_boundary()
+    # show_boundary()
+
+    test_new_transforms()

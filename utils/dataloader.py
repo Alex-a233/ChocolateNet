@@ -15,8 +15,7 @@ class TrainSet(Dataset):
         self.use_aug = args.use_aug
         image_path = os.path.join(args.train_path, 'images')
         mask_path = os.path.join(args.train_path, 'masks')
-        self.images = [os.path.join(image_path, f) for f in os.listdir(image_path) if
-                       f.endswith('.jpg') or f.endswith('.png')]
+        self.images = [os.path.join(image_path, f) for f in os.listdir(image_path) if f.endswith('.png')]
         self.masks = [os.path.join(mask_path, f) for f in os.listdir(mask_path) if f.endswith('.png')]
         self.images = sorted(self.images)
         self.masks = sorted(self.masks)
@@ -29,7 +28,10 @@ class TrainSet(Dataset):
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.Resize((self.train_size, self.train_size)),
                 transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                # TODO: remove this code and see what will happen?
+                # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色
+                # transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1))
             ])
 
             self.mask_transform = transforms.Compose([
@@ -43,7 +45,8 @@ class TrainSet(Dataset):
             self.image_transform = transforms.Compose([
                 transforms.Resize((self.train_size, self.train_size)),
                 transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                # TODO: remove this code and see what will happen?
+                # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
 
             self.mask_transform = transforms.Compose([
@@ -83,8 +86,8 @@ class TestSet:
         self.image_transform = transforms.Compose([
             transforms.Resize((self.test_size, self.test_size)),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            # TODO: 补充其他可用的增强方法
+            # TODO: remove this code and see what will happen?
+            # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         self.size = len(self.images)
         self.index = 0

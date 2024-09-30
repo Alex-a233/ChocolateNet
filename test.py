@@ -40,10 +40,10 @@ def test(args):
             pred = F.interpolate(pred, size=mask.shape, mode='bilinear', align_corners=False)[0][0]
 
             # refers from PCS in SANet, enforce the contrast between pos & neg samples
-            pred[pred > 0] /= pred[pred > 0].float().mean()
-            pred[pred < 0] /= pred[pred < 0].float().mean()
+            pred[torch.where(pred > 0)] /= (pred > 0).float().mean()
+            pred[torch.where(pred < 0)] /= (pred < 0).float().mean()
             pred = pred.sigmoid().data.cpu().numpy() * 255
-            cv2.imwrite(save_path + name, np.round(pred))
+            cv2.imwrite(save_path + name, pred)
 
             # for compare experiments
             # show_boundary(pred, save_path, name)
