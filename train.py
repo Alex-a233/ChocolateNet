@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from model import ChocolateNet
 from utils.dataloader import TrainSet
 from utils.loss_func import wbce_wdice
-from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient
+from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient, just_save
 
 
 def train(model, trainset_loader, args):
@@ -22,7 +22,7 @@ def train(model, trainset_loader, args):
     size_rates = [0.75, 1, 1.25]
     params = model.parameters()
     optimizer = AdamW(params, args.lr, weight_decay=args.weight_decay)
-    print(optimizer)
+    print('\\(◕ ᴗ ◕ )✿\n', optimizer)
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, verbose=True, min_lr=1e-6)
     scaler = GradScaler(enabled=True)
     logger = SummaryWriter(args.log_path)
@@ -99,6 +99,8 @@ def train(model, trainset_loader, args):
             # if it generates a better best_mdice, reset early_stopping_cnt to 0
             early_stopping_cnt = 0
         else:
+            # just_save('current time %s, epoch %s & model\'s mdice %s' % (datetime.now(), epoch, mean_dice),
+            #           args.log_path, args.log_name)
             early_stopping_cnt += 1
 
         if early_stopping_cnt == args.early_stopping_patience:
@@ -117,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
-    parser.add_argument('--weight_decay', type=float, default=2e-2, help='weight decay')
+    parser.add_argument('--weight_decay', type=float, default=3e-2, help='weight decay')
     parser.add_argument('--early_stopping_patience', type=int, default=30, help='patience for epoch number')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')

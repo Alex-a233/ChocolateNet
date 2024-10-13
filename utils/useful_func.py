@@ -15,6 +15,14 @@ def print_save(info, path, file_name):
     f.close()
 
 
+# 不打印仅保存日志信息
+def just_save(info, path, file_name):
+    empty_create(path)
+    f = open(path + file_name, 'a')
+    f.write(info + '\n')
+    f.close()
+
+
 # 不存在则创建路径
 def empty_create(path):
     if not os.path.exists(path):

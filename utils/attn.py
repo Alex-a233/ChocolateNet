@@ -6,7 +6,7 @@ from utils.toy_block import MyConv
 
 
 class BoundaryAttention(nn.Module):
-    # TODO: maybe i need to rewrite this module
+
     def __init__(self):
         super(BoundaryAttention, self).__init__()
 
@@ -59,7 +59,7 @@ class BoundaryAttention(nn.Module):
 
         res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
-        res = res * x4_3_2
+        res = res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
 
         return res
 
@@ -106,9 +106,9 @@ class StructureAttention(nn.Module):
         self.conv = MyConv(64, 32, 1, use_bias=True, is_act=False)
 
     def forward(self, x):
-        x = self.ca(x) * x
-        res = self.sa(x) * x
-        res = self.conv(res)
+        xc = self.ca(x) * x
+        xs = self.sa(xc) * xc
+        res = self.conv(xs)
         res = F.interpolate(res, scale_factor=0.5, mode='bilinear', align_corners=True)
         return res
 

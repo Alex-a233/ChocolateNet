@@ -394,10 +394,10 @@ def calc_fps(n):
     print('ChocolateNet\'s fps = {:2f}'.format(fps))
 
 
-class ExpModel(nn.Module):
+class BAModel(nn.Module):
 
     def __init__(self):
-        super(ExpModel, self).__init__()
+        super(BAModel, self).__init__()
         self.backbone = PvtV2B2()
         path = './pretrained_args/pvt_v2_b2.pth'
         save_model = torch.load(path)
@@ -406,27 +406,47 @@ class ExpModel(nn.Module):
         model_dict.update(state_dict)
         self.backbone.load_state_dict(model_dict)
 
-        # 取后三个特征图，改通道数
-        self.conv2 = MyConv(128, 32, 1, is_act=False)
-        self.conv3 = MyConv(320, 32, 1, is_act=False)
-        self.conv4 = MyConv(512, 32, 1, is_act=False)
+        # BA 取后三个特征图，改通道数
+        self.conv2 = MyConv(128, 32, 1, use_bias=True)
+        self.conv3 = MyConv(320, 32, 1, use_bias=True)
+        self.conv4 = MyConv(512, 32, 1, use_bias=True)
 
-        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
-        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
-        self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
+        self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
+        self.conv6 = MyConv(96, 32, 3, padding=1, use_bias=True)
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
+        # self.conv_2 = MyConv(128, 32, 1, use_bias=True)
+        # self.conv_3 = MyConv(320, 32, 1, use_bias=True)
+        # self.conv_4 = MyConv(512, 32, 1, use_bias=True)
+        #
+        # self.ups = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        #
+        # self.conv_us1 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.conv_us2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.conv_us3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.conv_us4 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.conv_us5 = MyConv(2 * 32, 2 * 32, 3, padding=1, use_bias=True, is_act=False)
+        #
+        # self.conv_concat2 = MyConv(2 * 32, 2 * 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.conv_concat3 = MyConv(3 * 32, 3 * 32, 3, padding=1, use_bias=True, is_act=False)
+        #
+        # self.conv4 = MyConv(3 * 32, 32, 3, padding=1, use_bias=True, is_act=False)
+
     def forward(self, x):
+        # 1. 高层次特征图很模糊，不是正常人眼观察范围内的图像，故不可用常规的辨识方式判别 BA 的效果
         pvt = self.backbone(x)
         # x1 = pvt[0]  # (bs, 64, 88, 88)
+
         x2 = pvt[1]  # (bs, 128, 44, 44)
         x3 = pvt[2]  # (bs, 320, 22, 22)
         x4 = pvt[3]  # (bs, 512, 11, 11)
@@ -441,19 +461,46 @@ class ExpModel(nn.Module):
         x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
         x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
 
+        # origin version
         o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
         o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
         o4_3 = self.convm4_3(self.up(x4)) * x3 * x4_3
 
         res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
-        res *= x4_3_2
+        res = res * x4_3_2
+        res = res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
 
+        # cat = torch.cat((self.up(self.up(x4)), self.up(x3), x2), dim=1)
+        # cat = self.conv6(cat)
+        # res = res + cat
         return res
+
+        # o2 = pvt[1]  # (bs, 128, 44, 44)
+        # o3 = pvt[2]  # (bs, 320, 22, 22)
+        # o4 = pvt[3]  # (bs, 512, 11, 11)
+        #
+        # x1 = self.conv_4(o4)
+        # x2 = self.conv_3(o3)
+        # x3 = self.conv_2(o2)
+        #
+        # x1_1 = x1
+        # x2_1 = self.conv_us1(self.ups(x1)) * x2
+        # x3_1 = self.conv_us2(self.ups(self.ups(x1))) * self.conv_us3(self.ups(x2)) * x3
+        #
+        # x2_2 = torch.cat((x2_1, self.conv_us4(self.ups(x1_1))), 1)
+        # x2_2 = self.conv_concat2(x2_2)
+        #
+        # x3_2 = torch.cat((x3_1, self.conv_us5(self.ups(x2_2))), 1)
+        # x3_2 = self.conv_concat3(x3_2)
+        #
+        # x = self.conv4(x3_2)
+        #
+        # return x
 
 
 def test_boundary_attention():
-    model = ExpModel()
+    model = BAModel()
     model.cuda()
     parser = argparse.ArgumentParser(description='here is training arguments')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
@@ -464,12 +511,105 @@ def test_boundary_attention():
     train_set = TrainSet(args)
     trainset_loader = DataLoader(dataset=train_set, batch_size=1, shuffle=True, num_workers=4, pin_memory=True)
 
+    conv = nn.Conv2d(32, 3, kernel_size=(1, 1))
+    conv.cuda()
+    up = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
     for step, (images, masks) in enumerate(trainset_loader, start=1):
         images = images.cuda().float()
         # masks = masks.cuda().float()
         res = model(images)
-        print(res.shape)
-        break
+        res = up(conv(res))
+        res = res.squeeze(0).permute(1, 2, 0).sigmoid().data.cpu().numpy()
+        origin = images.squeeze().permute(1, 2, 0).data.cpu().numpy()
+        cimg = np.hstack((origin, res))
+        cv2.imshow('origin & ba_res', cimg)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        if step == 10:
+            break
+
+
+class SAModel(nn.Module):
+
+    def __init__(self):
+        super(SAModel, self).__init__()
+        self.backbone = PvtV2B2()
+        path = './pretrained_args/pvt_v2_b2.pth'
+        save_model = torch.load(path)
+        model_dict = self.backbone.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.backbone.load_state_dict(model_dict)
+
+        # SA
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        self.fc1 = MyConv(64, 4, 1, is_bn=False, is_act=False)
+        self.fc2 = MyConv(4, 64, 1, is_bn=False, is_act=False)
+        self.relu = nn.ReLU()
+
+        self.conv = MyConv(2, 1, 7, padding=3, is_bn=False, is_act=False)
+        self.conv1 = MyConv(64, 32, 1, use_bias=True, is_act=False)
+
+    def forward(self, x):
+        pvt = self.backbone(x)
+        x1 = pvt[0]  # (bs, 64, 88, 88)
+        # x2 = pvt[1]  # (bs, 128, 44, 44)
+        # x3 = pvt[2]  # (bs, 320, 22, 22)
+        # x4 = pvt[3]  # (bs, 512, 11, 11)
+
+        avg_res = self.fc2(self.relu(self.fc1(self.avg_pool(x1))))
+        max_res = self.fc2(self.relu(self.fc1(self.max_pool(x1))))
+        am_res = avg_res + max_res
+        t = torch.sigmoid(am_res) * x1
+
+        avg_res = torch.mean(t, dim=1, keepdim=True)
+        max_res, _ = torch.max(t, dim=1, keepdim=True)
+        res = torch.cat([avg_res, max_res], dim=1)
+        res = self.conv(res)
+        res = torch.sigmoid(res) * t
+        res0 = self.conv1(res)
+        res = self.conv1(res) + self.conv1(x1)
+
+        return res0, res
+
+
+def test_structure_attention():
+    model = SAModel()
+    model.cuda()
+    parser = argparse.ArgumentParser(description='here is training arguments')
+    parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
+    parser.add_argument('--train_size', type=int, default=352, help='training image size')
+    parser.add_argument('--train_path', type=str, default='./dataset/trainset/', help='training set path')
+    args = parser.parse_args()
+
+    train_set = TrainSet(args)
+    trainset_loader = DataLoader(dataset=train_set, batch_size=1, shuffle=True, num_workers=4, pin_memory=True)
+
+    conv = nn.Conv2d(32, 3, kernel_size=(1, 1))
+    conv.cuda()
+    up = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
+    for step, (images, masks) in enumerate(trainset_loader, start=1):
+        images = images.cuda().float()
+        # masks = masks.cuda().float()
+        res0, res = model(images)
+        res0 = up(conv(res0))
+        res0 = res0.squeeze(0).permute(1, 2, 0).data.cpu().numpy()
+
+        res = up(conv(res))
+        res = res.squeeze(0).permute(1, 2, 0).data.cpu().numpy()
+
+        origin = images.squeeze().permute(1, 2, 0).data.cpu().numpy()
+        cimg = np.hstack((origin, res0, res))
+        cv2.imshow('origin & ba_res', cimg)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        if step == 10:
+            break
+
+
+def test_feature_aggregation():
+    pass
 
 
 def find_goal():
@@ -500,8 +640,7 @@ def find_goal():
     print('CVC-300 best mdice {}'.format(max(t)))
 
     etis = [0.743, 0.823, 0.801, 0.777, 0.749, 0.759, 0.726, 0.78, 0.78, 0.903, 0.797, 0.551, 0.788, 0.823, 0.935,
-            0.747,
-            0.842, 0.801, 0.677, 0.762, 0.787, 0.719, 0.75, 0.766, 0.628, 0.401, 0.398]
+            0.747, 0.842, 0.801, 0.677, 0.762, 0.787, 0.719, 0.75, 0.766, 0.628, 0.401, 0.398]
     etis.sort()
     print(etis)
     print('ETIS best mdice {}'.format(max(etis)))
@@ -509,12 +648,12 @@ def find_goal():
     bkai = [0.66, 0.902]
     print('BKAI best mdice {}'.format(max(bkai)))
 
-    # Kvasir: 0.959
-    # CVC-ClinicDB: 0.947
-    # CVC - ColonDB: 0.935
-    # CVC - 300: 0.932
-    # ETIS: 0.935
     # BKAI: 0.902
+    # CVC-300: 0.932
+    # CVC-ClinicDB: 0.947
+    # CVC-ColonDB: 0.935
+    # ETIS: 0.935
+    # Kvasir: 0.959
 
 
 def retest_failed_cases():
@@ -587,22 +726,24 @@ def test_new_transforms():
         transforms.RandomRotation(90, expand=False, center=None, fill=0),
         transforms.RandomVerticalFlip(p=0.5),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.Resize((352, 352)),
+        # transforms.Resize((352, 352)),
         # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色
-        transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1)),
+        # transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1)),
+        transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
         transforms.ToTensor(),
         # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
     dataset = SegmentationDataset(transform=transform)
-    image = dataset.get_image(0)
-    img0 = np.array(image)
-    cv2.imshow('before aug', img0)
-    cv2.waitKey(0)
-    image = transform(image)
-    img = image.permute(1, 2, 0).data.cpu().numpy()
-    cv2.imshow('after aug', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    for i in range(10):
+        image = dataset.get_image(i)
+        img0 = np.array(image)
+        # cv2.imshow('before aug', img0)
+        # cv2.waitKey(0)
+        image = transform(image)
+        img = image.permute(1, 2, 0).data.cpu().numpy()
+        cv2.imshow('after aug', img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
@@ -628,6 +769,10 @@ if __name__ == '__main__':
 
     # test_boundary_attention()
 
+    # test_structure_attention()
+
+    test_feature_aggregation()
+
     # find_goal()
 
     # retest_failed_cases()
@@ -638,4 +783,4 @@ if __name__ == '__main__':
 
     # show_boundary()
 
-    test_new_transforms()
+    # test_new_transforms()
