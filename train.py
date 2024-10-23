@@ -4,6 +4,7 @@ from datetime import datetime
 
 import torch
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 import torchvision.utils as tvu
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
@@ -14,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 from model import ChocolateNet
 from utils.dataloader import TrainSet
 from utils.loss_func import wbce_wdice
-from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient, just_save
+from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient
 
 
 def train(model, trainset_loader, args):
@@ -37,6 +38,11 @@ def train(model, trainset_loader, args):
 
             for size_rate in size_rates:
                 images, masks = pairs
+
+                # if over 20 epochs the performance of model did not increase
+                # if best_mdice > 0.8 and early_stopping_cnt >= 20:
+                #     images = dye_aug(images)  # use dye augmentation strategy
+
                 images = images.cuda().float()
                 masks = masks.cuda().float()
 
@@ -50,8 +56,8 @@ def train(model, trainset_loader, args):
                 optimizer.zero_grad()
                 # use amp.autocast
                 with autocast():
-                    pred = model(images)
-                    bce_loss, dice_loss = wbce_wdice(pred, masks)
+                    preds = model(images)
+                    bce_loss, dice_loss = wbce_wdice(preds, masks)
                     # calculate total loss
                     loss = (bce_loss + dice_loss).mean()
 
@@ -62,7 +68,7 @@ def train(model, trainset_loader, args):
                     print_save(f'it is time about {datetime.now()} exception occur =>\n{ex}', args.log_path,
                                args.log_name)
 
-                clip_gradient(optimizer, args.clip)
+                # clip_gradient(optimizer, args.clip)  # TODO: 去掉这个会如何 ?
                 scaler.step(optimizer)
                 scaler.update()
 
@@ -84,8 +90,8 @@ def train(model, trainset_loader, args):
         # save the best model weights args if cur mdice better than ever before
         if mean_dice > best_mdice:
             # visualized the pred
-            pred_image = tvu.make_grid(pred, normalize=False, scale_each=True)
-            logger.add_image('{}/preds/'.format(epoch), pred_image, epoch)
+            pred_images = tvu.make_grid(preds, normalize=False, scale_each=True)
+            logger.add_image('{}/preds/'.format(epoch), pred_images, epoch)
             best_mdice = mean_dice
             # create save path
             empty_create(args.save_path)
@@ -141,6 +147,8 @@ if __name__ == '__main__':
     train_set = TrainSet(args)
     trainset_loader = DataLoader(dataset=train_set, batch_size=args.batch_size,
                                  shuffle=True, num_workers=4, pin_memory=True)
+
+    # dye_aug = transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1))
 
     start_time = datetime.now()
     print_save('$' * 20 + ' Training start and it is time about {} '.format(start_time) + '$' * 20, args.log_path,

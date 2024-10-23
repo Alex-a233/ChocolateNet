@@ -25,6 +25,7 @@ class BoundaryAttention(nn.Module):
         #
         # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
 
+        # v1009
         self.conv2 = MyConv(128, 32, 1, use_bias=True)
         self.conv3 = MyConv(320, 32, 1, use_bias=True)
         self.conv4 = MyConv(512, 32, 1, use_bias=True)
@@ -103,12 +104,12 @@ class StructureAttention(nn.Module):
         super(StructureAttention, self).__init__()
         self.ca = ChannelAttention(64)
         self.sa = SpatialAttention()
-        self.conv = MyConv(64, 32, 1, use_bias=True, is_act=False)
+        self.conv = MyConv(64, 32, 1, use_bias=True)
 
     def forward(self, x):
-        xc = self.ca(x) * x
-        xs = self.sa(xc) * xc
-        res = self.conv(xs)
+        x = self.ca(x) * x
+        x = self.sa(x) * x
+        res = self.conv(x)
         res = F.interpolate(res, scale_factor=0.5, mode='bilinear', align_corners=True)
         return res
 

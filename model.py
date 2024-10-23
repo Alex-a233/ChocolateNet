@@ -17,10 +17,10 @@ class ChocolateNet(nn.Module):
         state_dict.update(model_state_dict)
         self.backbone.load_state_dict(state_dict)
 
-        # 2. Structure Attention Module(CA+SA)
-        self.sa = StructureAttention()
         # 1. Boundary Attention Module
         self.ba = BoundaryAttention()
+        # 2. Structure Attention Module(CA+SA)
+        self.sa = StructureAttention()
         # 3. Feature Aggregation Module
         self.fa = FeatureAggregation()
         self.out_ba = MyConv(32, 1, 1, use_bias=True, is_bn=False, is_act=False)
@@ -40,7 +40,7 @@ class ChocolateNet(nn.Module):
         fa_res = self.out_fa(fa_res)  # (bs, 1, 44, 44)
         pred1 = self.up(ba_res)
         pred2 = self.up(fa_res)
-        return pred1 + pred2  # TODO: 换成 pred1 * pred2 会如何？
+        return pred1 + pred2  # TODO: 换成 pred1 * pred2 会如何？| + x 会如何？
 
 
 if __name__ == '__main__':
@@ -49,8 +49,9 @@ if __name__ == '__main__':
     pred = model(x)
     print(pred.shape)
 
-    # CVC-300                       dice: 0.9
-    # CVC-ClinicDB             dice: 0.9
-    # CVC-ColonDB             dice: 0.9
-    # ETIS-LaribPolypDB dice: 0.9
-    # Kvasir                            dice: 0.9
+    # Polyp-PVT's performance
+    # CVC-300                       mdice: 0.880  miou: 0.802
+    # CVC-ClinicDB             mdice: 0.937   miou: 0.889
+    # CVC-ColonDB             mdice: 0.808  miou: 0.727
+    # ETIS-LaribPolypDB mdice: 0.787   miou: 0.706
+    # Kvasir                            mdice: 0.917    miou: 0.864

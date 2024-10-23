@@ -27,10 +27,10 @@ class TrainSet(Dataset):
                 transforms.RandomVerticalFlip(p=0.5),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.Resize((self.train_size, self.train_size)),
-                # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色(√)
-                # transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
                 transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet的通道级标准化参数
+                # transforms.Normalize([0.497, 0.301, 0.216], [0.299, 0.208, 0.161])  # trainset 的通道级标准化系数
+                transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
             ])
 
             self.mask_transform = transforms.Compose([
@@ -44,7 +44,9 @@ class TrainSet(Dataset):
             self.image_transform = transforms.Compose([
                 transforms.Resize((self.train_size, self.train_size)),
                 transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                # transforms.Normalize([0.497, 0.301, 0.216], [0.299, 0.208, 0.161])
+                transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
             ])
 
             self.mask_transform = transforms.Compose([
@@ -84,7 +86,9 @@ class TestSet:
         self.image_transform = transforms.Compose([
             transforms.Resize((self.test_size, self.test_size)),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            # transforms.Normalize([0.497, 0.301, 0.216], [0.299, 0.208, 0.161])
+            transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
         ])
         self.size = len(self.images)
         self.index = 0

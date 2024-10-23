@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class MyConv(nn.Module):
@@ -40,66 +41,90 @@ class GCN(nn.Module):
 
 class FeatureAggregation(nn.Module):
 
-    def __init__(self, in_channels=64):
+    def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):  # plan 1
         super(FeatureAggregation, self).__init__()
-        self.query_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0, use_bias=True,
-                                 is_bn=False, is_act=False)
-        self.key_conv = MyConv(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0, use_bias=True,
-                               is_bn=False, is_act=False)
-        self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0, is_bn=False,
-                                 is_act=False)
-        self.gamma = nn.Parameter(torch.zeros(1))
-        self.softmax = nn.Softmax(dim=1)
-        self.scconv = MyConv(in_channels, in_channels // 2, kernel_size=1, is_bn=False, is_act=False)
+        self.normalize = normalize
+        self.num_s = num_s
+        self.num_n = mids ** 2
+        self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
 
-    def forward(self, x1, x2):
-        x = torch.cat([x1, x2], dim=1)
+        self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
+        self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
+        self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
+        self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
+
+    def forward(self, x, edge):
         b, c, h, w = x.size()
-        q = self.query_conv(x).view(b, -1, h * w).permute(0, 2, 1)
-        k = self.key_conv(x).view(b, -1, h * w)
-        am = torch.bmm(q, k)
-        a = self.softmax(am)
-        v = self.value_conv(x).view(b, -1, h * w)
-        out = torch.bmm(v, a.permute(0, 2, 1))
-        out = out.view(b, c, h, w)
-        out = self.gamma * out + x
-        out = self.scconv(out)
+        edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
+
+        # Construct projection matrix
+        x_state_reshaped = self.conv_state(x).view(b, self.num_s, -1)
+        x_proj = self.conv_proj(x)
+        x_mask = x_proj * edge
+        x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
+        x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
+        x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
+        x_rproj_reshaped = x_proj_reshaped
+
+        # Project and graph reason
+        x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
+        if self.normalize:
+            x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
+        x_b_rel = self.gcn(x_b_state)
+
+        # Reproject
+        x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
+        x_state = x_state_reshaped.view(b, self.num_s, *x.size()[2:])
+        out = x + self.conv_extend(x_state)
+
         return out
 
-    # def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):
+    # def __init__(self, in_channels=64):  # plan 2
     #     super(FeatureAggregation, self).__init__()
-    #     self.normalize = normalize
-    #     self.num_s = num_s
-    #     self.num_n = mids * mids
-    #     self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
+    #     self.query_conv = MyConv(in_channels, in_channels >> 1, kernel_size=1, stride=1, padding=0,
+    #                              use_bias=True, is_bn=False, is_act=False)
+    #     self.key_conv = MyConv(in_channels, in_channels >> 1, kernel_size=1, stride=1, padding=0,
+    #                            use_bias=True, is_bn=False, is_act=False)
+    #     self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0,
+    #                              is_bn=False, is_act=False)
+    #     self.gamma = nn.Parameter(torch.zeros(1))
+    #     self.softmax = nn.Softmax(dim=1)
+    #     self.scconv = MyConv(in_channels, in_channels >> 1, kernel_size=1, is_bn=False, is_act=False)
     #
-    #     self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
-    #     self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
-    #     self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
-    #     self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
-    #
-    # def forward(self, x, edge):
+    # def forward(self, x1, x2):
+    #     x = torch.cat([x1, x2], dim=1)
     #     b, c, h, w = x.size()
-    #     edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
+    #     q = self.query_conv(x).view(b, -1, h * w).permute(0, 2, 1)
+    #     k = self.key_conv(x).view(b, -1, h * w)
+    #     am = torch.bmm(q, k)
+    #     a = self.softmax(am)
+    #     v = self.value_conv(x).view(b, -1, h * w)
+    #     out = torch.bmm(v, a.permute(0, 2, 1))
+    #     out = out.view(b, c, h, w)
+    #     out = self.gamma * out + x
+    #     out = self.scconv(out)
+    #     return out
+
+    # def __init__(self, in_channels=32):  # plan 3
+    #     super(FeatureAggregation, self).__init__()
+    #     self.scconv = MyConv(in_channels << 1, in_channels, kernel_size=1, is_bn=False, is_act=False)
+    #     self.conv1x1 = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True)
+    #     self.conv3x3 = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=3, dilation=3, use_bias=True)
+    #     self.conv5x5 = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=5, dilation=5, use_bias=True)
+    #     self.addconv = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True)
+    #     self.outconv = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True, is_act=False)
+    #     # self.outconv = MyConv(3 * in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True, is_act=False)
     #
-    #     # Construct projection matrix
-    #     x_state_reshaped = self.conv_state(x).view(b, self.num_s, -1)
-    #     x_proj = self.conv_proj(x)
-    #     x_mask = x_proj * edge
-    #     x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
-    #     x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
-    #     x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
-    #     x_rproj_reshaped = x_proj_reshaped
-    #
-    #     # Project and graph reason
-    #     x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
-    #     if self.normalize:
-    #         x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
-    #     x_b_rel = self.gcn(x_b_state)
-    #
-    #     # Reproject
-    #     x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
-    #     x_state = x_state_reshaped.view(b, self.num_s, *x.size()[2:])
-    #     out = x + self.conv_extend(x_state)
+    # def forward(self, x1, x2):
+    #     x = torch.cat([x1, x2], dim=1)
+    #     cat_x = self.scconv(x)
+    #     o1 = self.conv1x1(cat_x)
+    #     o3 = self.conv3x3(cat_x)
+    #     o5 = self.conv5x5(cat_x)
+    #     o = self.addconv(o1 + o3 + o5)
+    #     # concat fusion? maybe
+    #     # out = torch.cat([o, x1, x2], dim=1)
+    #     # out = self.outconv(out)
+    #     out = self.outconv(o + x1 + x2)
     #
     #     return out

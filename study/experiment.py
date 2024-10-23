@@ -4,13 +4,16 @@ import time
 
 import cv2
 import matplotlib.pyplot as plt
+import numpy
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 from ptflops import get_model_complexity_info
 from skimage.measure import regionprops, label, find_contours
 from torch.utils.data import DataLoader, Dataset
+from torchvision.datasets import ImageFolder
 from torchvision.transforms import Resize, transforms
 from tqdm import tqdm
 
@@ -18,7 +21,7 @@ from backbone.pvtv2 import PvtV2B2
 from model import ChocolateNet
 from study.model1 import ChocolateNet1
 from utils.dataloader import TrainSet, TestSet
-from utils.toy_block import MyConv
+from utils.toy_block import MyConv, GCN
 
 
 def progress_bar():
@@ -106,6 +109,7 @@ def process_bkai_dataset():
 
 
 def calc_mean_std():
+
     # train_imgs = [os.path.join('./dataset/trainset/images', img) for img in os.listdir('./dataset/trainset/images')
     # if img.endswith('.png')]
     #
@@ -140,28 +144,28 @@ def calc_mean_std():
     dataset = SegmentationDataset()
     # 假设 dataset 是一个 PyTorch 的数据集
     train_loader = DataLoader(dataset, batch_size=1, shuffle=False)
-    resize = Resize((352, 352))
 
     # 计算均值和方差
-    mean = 0.
-    std = 0.
-    for img, _ in train_loader:
-        img = resize(img)
-        mean += img.mean([0, 2, 3])
-        std += img.std([0, 2, 3])
-    mean /= len(train_loader)
-    std /= len(train_loader)
+    mean = torch.zeros(3)
+    std = torch.zeros(3)
+    # for img, _ in train_loader:
+    for img in train_loader:
+        for c in range(3):
+            mean[c] += img[:, c, :, :].mean()
+            std[c] += img[:, c, :, :].std()
+    mean.div_(len(train_loader))
+    std.div_(len(train_loader))
 
     print(f'mean: {mean}')
     print(f'std: {std}')
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, root_dir='./dataset/trainset/', transform=None):
+
+    def __init__(self, root_dir='D:/Study/polyp_dataset'):
         self.root_dir = root_dir
-        self.transform = transform
         self.image_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'images')) if f.endswith('.png')])
-        self.mask_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'masks')) if f.endswith('.png')])
+        # self.mask_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'masks')) if f.endswith('.png')])
         self.image_transform = transforms.Compose([
             transforms.ToTensor()
         ])
@@ -171,17 +175,16 @@ class SegmentationDataset(Dataset):
 
     def __getitem__(self, idx):
         image_path = os.path.join(self.root_dir, 'images', self.image_files[idx])
-        mask_path = os.path.join(self.root_dir, 'masks', self.mask_files[idx])
+        # mask_path = os.path.join(self.root_dir, 'masks', self.mask_files[idx])
 
         image = Image.open(image_path).convert('RGB')
-        mask = Image.open(mask_path).convert('L')
-
-        image = self.transform(image)
+        # mask = Image.open(mask_path).convert('L')
 
         image = self.image_transform(image)
-        mask = self.image_transform(mask)
+        # mask = self.image_transform(mask)
 
-        return image, mask
+        # return image, mask
+        return image
 
     def get_image(self, i):
         image_path = os.path.join(self.root_dir, 'images', self.image_files[i])
@@ -394,10 +397,10 @@ def calc_fps(n):
     print('ChocolateNet\'s fps = {:2f}'.format(fps))
 
 
-class BAModel(nn.Module):
+class BAModule(nn.Module):
 
     def __init__(self):
-        super(BAModel, self).__init__()
+        super(BAModule, self).__init__()
         self.backbone = PvtV2B2()
         path = './pretrained_args/pvt_v2_b2.pth'
         save_model = torch.load(path)
@@ -421,26 +424,8 @@ class BAModel(nn.Module):
         self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
         self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
-        self.conv6 = MyConv(96, 32, 3, padding=1, use_bias=True)
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-
-        # self.conv_2 = MyConv(128, 32, 1, use_bias=True)
-        # self.conv_3 = MyConv(320, 32, 1, use_bias=True)
-        # self.conv_4 = MyConv(512, 32, 1, use_bias=True)
-        #
-        # self.ups = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        #
-        # self.conv_us1 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        # self.conv_us2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        # self.conv_us3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        # self.conv_us4 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
-        # self.conv_us5 = MyConv(2 * 32, 2 * 32, 3, padding=1, use_bias=True, is_act=False)
-        #
-        # self.conv_concat2 = MyConv(2 * 32, 2 * 32, 3, padding=1, use_bias=True, is_act=False)
-        # self.conv_concat3 = MyConv(3 * 32, 3 * 32, 3, padding=1, use_bias=True, is_act=False)
-        #
-        # self.conv4 = MyConv(3 * 32, 32, 3, padding=1, use_bias=True, is_act=False)
 
     def forward(self, x):
         # 1. 高层次特征图很模糊，不是正常人眼观察范围内的图像，故不可用常规的辨识方式判别 BA 的效果
@@ -471,37 +456,12 @@ class BAModel(nn.Module):
         res = res * x4_3_2
         res = res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
 
-        # cat = torch.cat((self.up(self.up(x4)), self.up(x3), x2), dim=1)
-        # cat = self.conv6(cat)
-        # res = res + cat
         return res
-
-        # o2 = pvt[1]  # (bs, 128, 44, 44)
-        # o3 = pvt[2]  # (bs, 320, 22, 22)
-        # o4 = pvt[3]  # (bs, 512, 11, 11)
-        #
-        # x1 = self.conv_4(o4)
-        # x2 = self.conv_3(o3)
-        # x3 = self.conv_2(o2)
-        #
-        # x1_1 = x1
-        # x2_1 = self.conv_us1(self.ups(x1)) * x2
-        # x3_1 = self.conv_us2(self.ups(self.ups(x1))) * self.conv_us3(self.ups(x2)) * x3
-        #
-        # x2_2 = torch.cat((x2_1, self.conv_us4(self.ups(x1_1))), 1)
-        # x2_2 = self.conv_concat2(x2_2)
-        #
-        # x3_2 = torch.cat((x3_1, self.conv_us5(self.ups(x2_2))), 1)
-        # x3_2 = self.conv_concat3(x3_2)
-        #
-        # x = self.conv4(x3_2)
-        #
-        # return x
 
 
 def test_boundary_attention():
-    model = BAModel()
-    model.cuda()
+    module = BAModule()
+    module.cuda()
     parser = argparse.ArgumentParser(description='here is training arguments')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')
@@ -517,7 +477,7 @@ def test_boundary_attention():
     for step, (images, masks) in enumerate(trainset_loader, start=1):
         images = images.cuda().float()
         # masks = masks.cuda().float()
-        res = model(images)
+        res = module(images)
         res = up(conv(res))
         res = res.squeeze(0).permute(1, 2, 0).sigmoid().data.cpu().numpy()
         origin = images.squeeze().permute(1, 2, 0).data.cpu().numpy()
@@ -529,18 +489,10 @@ def test_boundary_attention():
             break
 
 
-class SAModel(nn.Module):
+class SAModule(nn.Module):
 
     def __init__(self):
-        super(SAModel, self).__init__()
-        self.backbone = PvtV2B2()
-        path = './pretrained_args/pvt_v2_b2.pth'
-        save_model = torch.load(path)
-        model_dict = self.backbone.state_dict()
-        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        model_dict.update(state_dict)
-        self.backbone.load_state_dict(model_dict)
-
+        super(SAModule, self).__init__()
         # SA
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
@@ -575,7 +527,7 @@ class SAModel(nn.Module):
 
 
 def test_structure_attention():
-    model = SAModel()
+    model = SAModule()
     model.cuda()
     parser = argparse.ArgumentParser(description='here is training arguments')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
@@ -608,8 +560,153 @@ def test_structure_attention():
             break
 
 
+class FAModule(nn.Module):
+
+    def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):
+        super(FAModule, self).__init__()
+        # backbone
+        self.backbone = PvtV2B2()
+        path = './pretrained_args/pvt_v2_b2.pth'
+        save_model = torch.load(path)
+        model_dict = self.backbone.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.backbone.load_state_dict(model_dict)
+        # ba toys
+        self.conv2 = MyConv(128, 32, 1, use_bias=True)
+        self.conv3 = MyConv(320, 32, 1, use_bias=True)
+        self.conv4 = MyConv(512, 32, 1, use_bias=True)
+
+        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+
+        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+
+        self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
+
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        # sa toys
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        self.fc1 = MyConv(64, 4, 1, is_bn=False, is_act=False)
+        self.fc2 = MyConv(4, 64, 1, is_bn=False, is_act=False)
+        self.relu = nn.ReLU()
+
+        self.conv = MyConv(2, 1, 7, padding=3, is_bn=False, is_act=False)
+        self.conv1 = MyConv(64, 32, 1, use_bias=True, is_act=False)
+        # fa toys
+        self.normalize = normalize
+        self.num_s = num_s
+        self.num_n = mids ** 2
+        self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
+
+        self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
+        self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
+        self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
+        self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
+
+    def forward(self, x):
+        pvt = self.backbone(x)
+        x1 = pvt[0]  # (bs, 64, 88, 88)
+        x2 = pvt[1]  # (bs, 128, 44, 44)
+        x3 = pvt[2]  # (bs, 320, 22, 22)
+        x4 = pvt[3]  # (bs, 512, 11, 11)
+
+        # ba forward
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+        x4 = self.conv4(x4)
+
+        # 后两个上采样，三个特征图做减法，减出有差异的边界像素
+        x3_2 = self.convs3_2(abs(self.up(x3) - x2))  # 2,3层异同点
+        x4_2 = self.convs4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
+        x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
+        x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
+
+        # origin version
+        o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
+        o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
+        o4_3 = self.convm4_3(self.up(x4)) * x3 * x4_3
+
+        ba_res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
+        ba_res = self.conv5(ba_res)
+        ba_res = ba_res * x4_3_2
+        ba_res = ba_res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
+
+        # sa forward
+        avg_res = self.fc2(self.relu(self.fc1(self.avg_pool(x1))))
+        max_res = self.fc2(self.relu(self.fc1(self.max_pool(x1))))
+        am_res = avg_res + max_res
+        t = torch.sigmoid(am_res) * x1
+
+        avg_res = torch.mean(t, dim=1, keepdim=True)
+        max_res, _ = torch.max(t, dim=1, keepdim=True)
+        sa_res = torch.cat([avg_res, max_res], dim=1)
+        sa_res = self.conv(sa_res)
+        sa_res = torch.sigmoid(sa_res) * t
+        sa_res = self.conv1(sa_res)
+        sa_res = F.interpolate(sa_res, scale_factor=0.5, mode='bilinear', align_corners=True)
+
+        # fa forward
+        b, c, h, w = ba_res.size()
+        edge = F.softmax(sa_res, dim=1)[:, 1, :, :].unsqueeze(1)
+
+        # Construct projection matrix
+        x_state_reshaped = self.conv_state(ba_res).view(b, self.num_s, -1)
+        x_proj = self.conv_proj(ba_res)
+        x_mask = x_proj * edge
+        x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
+        x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
+        x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
+        x_rproj_reshaped = x_proj_reshaped
+
+        # Project and graph reason
+        x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
+        if self.normalize:
+            x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
+        x_b_rel = self.gcn(x_b_state)
+
+        # Reproject
+        x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
+        x_state = x_state_reshaped.view(b, self.num_s, h, w)
+        out = ba_res + self.conv_extend(x_state)
+
+        return out
+
+
 def test_feature_aggregation():
-    pass
+    fa = FAModule()
+    fa.cuda()
+    parser = argparse.ArgumentParser(description='here is training arguments')
+    parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
+    parser.add_argument('--train_size', type=int, default=352, help='training image size')
+    parser.add_argument('--train_path', type=str, default='./dataset/trainset/', help='training set path')
+    args = parser.parse_args()
+
+    train_set = TrainSet(args)
+    trainset_loader = DataLoader(dataset=train_set, batch_size=1, shuffle=True, num_workers=4, pin_memory=True)
+
+    scconv = nn.Conv2d(32, 1, kernel_size=(1, 1))
+    scconv.cuda()
+    up = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
+
+    for step, (images, masks) in enumerate(trainset_loader, start=1):
+        images = images.cuda().float()
+        masks = masks.cuda().float()
+        res = fa(images)
+        res = up(scconv(res))
+        res = res.squeeze(0).permute(1, 2, 0).data.cpu().numpy()
+        origin = masks.squeeze(0).permute(1, 2, 0).data.cpu().numpy()
+        cimg = np.hstack((origin, res))
+        cv2.imshow('fa_res', cimg)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        if step == 10:
+            break
 
 
 def find_goal():
@@ -729,14 +826,19 @@ def test_new_transforms():
         # transforms.Resize((352, 352)),
         # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色
         # transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1)),
-        transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
+        # transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
+        # reference from ColonFormer
+        # # 高斯模糊，标准差0.001-2.0
+        # transforms.GaussianBlur((25, 25), sigma=(0.001, 2.0)),
+        # # 图像的亮度调整为0.4，对比度调整为0.5，饱和度调整为0.25，色度调整为0.01
+        # transforms.ColorJitter(brightness=0.4, contrast=0.5, saturation=0.25, hue=0.01),
         transforms.ToTensor(),
         # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
     dataset = SegmentationDataset(transform=transform)
     for i in range(10):
         image = dataset.get_image(i)
-        img0 = np.array(image)
+        # img0 = np.array(image)
         # cv2.imshow('before aug', img0)
         # cv2.waitKey(0)
         image = transform(image)
@@ -753,7 +855,7 @@ if __name__ == '__main__':
 
     # process_bkai_dataset()
 
-    # calc_mean_std()  # TODO: wait for author reply, if i guess right, change norm
+    calc_mean_std()
 
     # sum_dict = count_polyp()
 
@@ -771,7 +873,7 @@ if __name__ == '__main__':
 
     # test_structure_attention()
 
-    test_feature_aggregation()
+    # test_feature_aggregation()
 
     # find_goal()
 
