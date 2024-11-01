@@ -39,6 +39,21 @@ class GCN(nn.Module):
         return h
 
 
+class CircConv(nn.Module):
+
+    def __init__(self, state_dim, out_state_dim=None, n_adj=2):
+        super(CircConv, self).__init__()
+        self.n_adj = n_adj
+        out_state_dim = state_dim if out_state_dim is None else out_state_dim
+        self.fc = nn.Conv1d(state_dim, out_state_dim, kernel_size=self.n_adj * 2 + 1)
+        self.bn = nn.BatchNorm1d(out_state_dim)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, input):
+        input = torch.cat([input[..., -self.n_adj:], input, input[..., :self.n_adj]], dim=2)
+        return self.relu(self.bn(self.fc(input)))
+
+
 class FeatureAggregation(nn.Module):
 
     def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):  # plan 1
@@ -52,6 +67,7 @@ class FeatureAggregation(nn.Module):
         self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
         self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
         self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
+        # self.cconv = CircConv(self.num_s, self.num_n)
 
     def forward(self, x, edge):
         b, c, h, w = x.size()
@@ -71,6 +87,7 @@ class FeatureAggregation(nn.Module):
         if self.normalize:
             x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
         x_b_rel = self.gcn(x_b_state)
+        # x_b_rel = self.cconv(x_b_state)
 
         # Reproject
         x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)

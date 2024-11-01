@@ -14,8 +14,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model import ChocolateNet
 from utils.dataloader import TrainSet
-from utils.loss_func import wbce_wdice
-from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient
+from utils.loss_func import wbce_wdice, bar_ce_loss
+from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient, just_save
 
 
 def train(model, trainset_loader, args):
@@ -58,6 +58,7 @@ def train(model, trainset_loader, args):
                 with autocast():
                     preds = model(images)
                     bce_loss, dice_loss = wbce_wdice(preds, masks)
+                    # bce_loss, dice_loss = bar_ce_loss(preds, masks)
                     # calculate total loss
                     loss = (bce_loss + dice_loss).mean()
 
@@ -68,7 +69,7 @@ def train(model, trainset_loader, args):
                     print_save(f'it is time about {datetime.now()} exception occur =>\n{ex}', args.log_path,
                                args.log_name)
 
-                # clip_gradient(optimizer, args.clip)  # TODO: 去掉这个会如何 ?
+                clip_gradient(optimizer, args.clip)  # remove this will decrease the performance
                 scaler.step(optimizer)
                 scaler.update()
 
@@ -105,8 +106,8 @@ def train(model, trainset_loader, args):
             # if it generates a better best_mdice, reset early_stopping_cnt to 0
             early_stopping_cnt = 0
         else:
-            # just_save('current time %s, epoch %s & model\'s mdice %s' % (datetime.now(), epoch, mean_dice),
-            #           args.log_path, args.log_name)
+            just_save('current time %s, epoch %s & model\'s mdice %s' % (datetime.now(), epoch, mean_dice),
+                      args.log_path, args.log_name)
             early_stopping_cnt += 1
 
         if early_stopping_cnt == args.early_stopping_patience:
@@ -120,7 +121,7 @@ def train(model, trainset_loader, args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='here is training arguments')
+    parser = argparse.ArgumentParser(description='here is the training arguments')
     parser.add_argument('--epoch', type=int, default=90, help='training epochs')
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')

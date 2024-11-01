@@ -31,7 +31,7 @@ def test(args):
         num_mask = len(os.listdir(mask_path))
         test_set = TestSet(image_path, mask_path, args.test_size)
 
-        for i in tqdm(range(num_mask), colour='#e946ef'):
+        for _ in tqdm(range(num_mask), colour='#e946ef'):
             image, mask, name = test_set.load_data()
             mask = np.array(mask, np.float32)  # exchange mask's height and width
 
