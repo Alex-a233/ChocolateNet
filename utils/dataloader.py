@@ -11,8 +11,6 @@ from torchvision import transforms
 class TrainSet(Dataset):
 
     def __init__(self, args):
-        self.train_size = args.train_size
-        self.use_aug = args.use_aug
         image_path = os.path.join(args.train_path, 'images')
         mask_path = os.path.join(args.train_path, 'masks')
         self.images = [os.path.join(image_path, f) for f in os.listdir(image_path) if f.endswith('.png')]
@@ -20,6 +18,8 @@ class TrainSet(Dataset):
         self.images = sorted(self.images)
         self.masks = sorted(self.masks)
         self.size = len(self.images)
+        self.use_aug = args.use_aug
+        self.train_size = args.train_size
 
         if self.use_aug:
             self.image_transform = transforms.Compose([
@@ -28,10 +28,10 @@ class TrainSet(Dataset):
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.Resize((self.train_size, self.train_size)),
                 transforms.ToTensor(),
-                # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet的通道级标准化参数
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet的通道级标准化参数
                 # transforms.Normalize([0.497, 0.301, 0.216], [0.298, 0.208, 0.161])  # trainset 的通道级标准化系数
                 # transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数(同除去BKAI的)
-                transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
+                # transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
                 # transforms.Normalize([0.602, 0.431, 0.372], [0.236, 0.211, 0.195])  # ETIS 的通道级标准化系数
             ])
 
@@ -46,10 +46,10 @@ class TrainSet(Dataset):
             self.image_transform = transforms.Compose([
                 transforms.Resize((self.train_size, self.train_size)),
                 transforms.ToTensor(),
-                # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
                 # transforms.Normalize([0.497, 0.301, 0.216], [0.298, 0.208, 0.161])  # trainset 的通道级标准化系数
                 # transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
-                transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
+                # transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
                 # transforms.Normalize([0.602, 0.431, 0.372], [0.236, 0.211, 0.195])  # ETIS 的通道级标准化系数
             ])
 
@@ -90,10 +90,10 @@ class TestSet:
         self.image_transform = transforms.Compose([
             transforms.Resize((self.test_size, self.test_size)),
             transforms.ToTensor(),
-            # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            # transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             # transforms.Normalize([0.497, 0.301, 0.216], [0.298, 0.208, 0.161])  # trainset 的通道级标准化系数
-            transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
+            # transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
+            # transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
             # transforms.Normalize([0.602, 0.431, 0.372], [0.236, 0.211, 0.195])  # ETIS 的通道级标准化系数
         ])
         self.size = len(self.images)

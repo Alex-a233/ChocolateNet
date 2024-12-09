@@ -3,8 +3,6 @@ import traceback
 from datetime import datetime
 
 import torch
-import torch.nn.functional as F
-import torchvision.transforms as transforms
 import torchvision.utils as tvu
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim import AdamW
@@ -14,13 +12,14 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model import ChocolateNet
 from utils.dataloader import TrainSet
-from utils.loss_func import wbce_wdice, bar_ce_loss
-from utils.useful_func import empty_create, choose_best, print_save, calculate_time_loss, clip_gradient, just_save
+from utils.loss_func import wbce_wdice
+from utils.useful_func import *
+
+best_mdice = 0.0
+early_stopping_cnt = 0
 
 
 def train(model, trainset_loader, args):
-    # size_rates = [0.5, 0.75, 1, 1.25, 1.5]
-    size_rates = [0.75, 1, 1.25]
     params = model.parameters()
     optimizer = AdamW(params, args.lr, weight_decay=args.weight_decay)
     print('\\(◕ ᴗ ◕ )✿\n', optimizer)
@@ -29,19 +28,15 @@ def train(model, trainset_loader, args):
     logger = SummaryWriter(args.log_path)
     total_step = len(trainset_loader)
     global_step = 1
-    best_mdice = 0.0
-    early_stopping_cnt = 0
+    global best_mdice
+    global early_stopping_cnt
+    size_rates = [0.75, 1, 1.25]
+    # size_rates = [0.5, 1, 1.5]  # 尝试以不同缩放比率（1/2）调整图像，性能尚可
 
     for epoch in range(1, args.epoch + 1):
-
         for step, pairs in enumerate(trainset_loader, start=1):
-
             for size_rate in size_rates:
                 images, masks = pairs
-
-                # if over 20 epochs the performance of model did not increase
-                # if best_mdice > 0.8 and early_stopping_cnt >= 20:
-                #     images = dye_aug(images)  # use dye augmentation strategy
 
                 images = images.cuda().float()
                 masks = masks.cuda().float()
@@ -58,7 +53,6 @@ def train(model, trainset_loader, args):
                 with autocast():
                     preds = model(images)
                     bce_loss, dice_loss = wbce_wdice(preds, masks)
-                    # bce_loss, dice_loss = bar_ce_loss(preds, masks)
                     # calculate total loss
                     loss = (bce_loss + dice_loss).mean()
 
@@ -111,7 +105,7 @@ def train(model, trainset_loader, args):
             early_stopping_cnt += 1
 
         if early_stopping_cnt == args.early_stopping_patience:
-            stop_training_prompt = 'current time {}, epoch [{:03d}/{:03d}] & best mdice {:04f}. ' \
+            stop_training_prompt = 'current time {}, epoch [{:03d}/{:03d}] & best mdice {:04f}. \n' \
                                    'model can not perform better, stop training~'
             print_save(stop_training_prompt.format(datetime.now(), epoch, args.epoch, best_mdice), args.log_path,
                        args.log_name)
@@ -122,7 +116,7 @@ def train(model, trainset_loader, args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='here is the training arguments')
-    parser.add_argument('--epoch', type=int, default=90, help='training epochs')
+    parser.add_argument('--epoch', type=int, default=100, help='training epochs')
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
@@ -149,8 +143,6 @@ if __name__ == '__main__':
     trainset_loader = DataLoader(dataset=train_set, batch_size=args.batch_size,
                                  shuffle=True, num_workers=4, pin_memory=True)
 
-    # dye_aug = transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1))
-
     start_time = datetime.now()
     print_save('$' * 20 + ' Training start and it is time about {} '.format(start_time) + '$' * 20, args.log_path,
                args.log_name)
@@ -160,5 +152,8 @@ if __name__ == '__main__':
     end_time = datetime.now()
     print_save('$' * 20 + ' Training end and it is time about {} '.format(end_time) + '$' * 20, args.log_path,
                args.log_name)
+
+    if early_stopping_cnt < args.early_stopping_patience:
+        print_save('best mdice is {:04f}.'.format(best_mdice), args.log_path, args.log_name)
 
     calculate_time_loss(start_time, end_time, 'Training', args)

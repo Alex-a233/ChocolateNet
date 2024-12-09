@@ -11,7 +11,7 @@ class MyConv(nn.Module):
         self.conv = nn.Conv2d(in_channel, out_channel, kernel_size=kernel_size,
                               stride=stride, padding=padding, dilation=dilation, groups=groups, bias=use_bias)
         self.bn = nn.BatchNorm2d(out_channel)
-        self.relu = nn.ReLU(inplace=True)
+        self.act = nn.ReLU(inplace=True)
         self.is_bn = is_bn
         self.is_act = is_act
 
@@ -20,8 +20,25 @@ class MyConv(nn.Module):
         if self.is_bn:
             x = self.bn(x)
         if self.is_act:
-            x = self.relu(x)
+            x = self.act(x)
         return x
+
+
+class GCN1(nn.Module):
+    def __init__(self, in_features, hidden_features, out_features):
+        super(GCN1, self).__init__()
+        self.weight1 = nn.Parameter(torch.FloatTensor(in_features, hidden_features))
+        nn.init.xavier_uniform_(self.weight1)
+        self.weight2 = nn.Parameter(torch.FloatTensor(hidden_features, out_features))
+        nn.init.xavier_uniform_(self.weight2)
+
+    def forward(self, x, adj):
+        support1 = torch.matmul(x, self.weight1)
+        output1 = F.relu(torch.matmul(adj, support1))
+        support2 = torch.matmul(output1, self.weight2)
+        output2 = torch.matmul(adj, support2)
+
+        return output2
 
 
 class GCN(nn.Module):
@@ -39,21 +56,6 @@ class GCN(nn.Module):
         return h
 
 
-class CircConv(nn.Module):
-
-    def __init__(self, state_dim, out_state_dim=None, n_adj=2):
-        super(CircConv, self).__init__()
-        self.n_adj = n_adj
-        out_state_dim = state_dim if out_state_dim is None else out_state_dim
-        self.fc = nn.Conv1d(state_dim, out_state_dim, kernel_size=self.n_adj * 2 + 1)
-        self.bn = nn.BatchNorm1d(out_state_dim)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, input):
-        input = torch.cat([input[..., -self.n_adj:], input, input[..., :self.n_adj]], dim=2)
-        return self.relu(self.bn(self.fc(input)))
-
-
 class FeatureAggregation(nn.Module):
 
     def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):  # plan 1
@@ -66,8 +68,9 @@ class FeatureAggregation(nn.Module):
         self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
         self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
         self.conv_extend = MyConv(self.num_s, num_in, kernel_size=1, is_bn=False, is_act=False)
-        self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
-        # self.cconv = CircConv(self.num_s, self.num_n)
+
+        # self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
+        self.gcn = GCN1(self.num_s, self.num_n, self.num_s)
 
     def forward(self, x, edge):
         b, c, h, w = x.size()
@@ -84,10 +87,15 @@ class FeatureAggregation(nn.Module):
 
         # Project and graph reason
         x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
+
         if self.normalize:
             x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
-        x_b_rel = self.gcn(x_b_state)
-        # x_b_rel = self.cconv(x_b_state)
+
+        adj = torch.randn(self.num_s, self.num_s).cuda()
+        adj = (adj + adj.T) / 2  # 确保邻接矩阵是对称的
+        adj = F.softmax(adj, dim=1)  # 归一化邻接矩阵
+        x_b_rel = self.gcn(x_b_state, adj)
+        # x_b_rel = self.gcn(x_b_state)
 
         # Reproject
         x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
@@ -96,52 +104,28 @@ class FeatureAggregation(nn.Module):
 
         return out
 
-    # def __init__(self, in_channels=64):  # plan 2
-    #     super(FeatureAggregation, self).__init__()
-    #     self.query_conv = MyConv(in_channels, in_channels >> 1, kernel_size=1, stride=1, padding=0,
-    #                              use_bias=True, is_bn=False, is_act=False)
-    #     self.key_conv = MyConv(in_channels, in_channels >> 1, kernel_size=1, stride=1, padding=0,
-    #                            use_bias=True, is_bn=False, is_act=False)
-    #     self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0,
-    #                              is_bn=False, is_act=False)
-    #     self.gamma = nn.Parameter(torch.zeros(1))
-    #     self.softmax = nn.Softmax(dim=1)
-    #     self.scconv = MyConv(in_channels, in_channels >> 1, kernel_size=1, is_bn=False, is_act=False)
-    #
-    # def forward(self, x1, x2):
-    #     x = torch.cat([x1, x2], dim=1)
-    #     b, c, h, w = x.size()
-    #     q = self.query_conv(x).view(b, -1, h * w).permute(0, 2, 1)
-    #     k = self.key_conv(x).view(b, -1, h * w)
-    #     am = torch.bmm(q, k)
-    #     a = self.softmax(am)
-    #     v = self.value_conv(x).view(b, -1, h * w)
-    #     out = torch.bmm(v, a.permute(0, 2, 1))
-    #     out = out.view(b, c, h, w)
-    #     out = self.gamma * out + x
-    #     out = self.scconv(out)
-    #     return out
-
-    # def __init__(self, in_channels=32):  # plan 3
-    #     super(FeatureAggregation, self).__init__()
-    #     self.scconv = MyConv(in_channels << 1, in_channels, kernel_size=1, is_bn=False, is_act=False)
-    #     self.conv1x1 = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True)
-    #     self.conv3x3 = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=3, dilation=3, use_bias=True)
-    #     self.conv5x5 = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=5, dilation=5, use_bias=True)
-    #     self.addconv = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True)
-    #     self.outconv = MyConv(in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True, is_act=False)
-    #     # self.outconv = MyConv(3 * in_channels, in_channels, kernel_size=3, stride=1, padding=1, use_bias=True, is_act=False)
-    #
-    # def forward(self, x1, x2):
-    #     x = torch.cat([x1, x2], dim=1)
-    #     cat_x = self.scconv(x)
-    #     o1 = self.conv1x1(cat_x)
-    #     o3 = self.conv3x3(cat_x)
-    #     o5 = self.conv5x5(cat_x)
-    #     o = self.addconv(o1 + o3 + o5)
-    #     # concat fusion? maybe
-    #     # out = torch.cat([o, x1, x2], dim=1)
-    #     # out = self.outconv(out)
-    #     out = self.outconv(o + x1 + x2)
-    #
-    #     return out
+# def __init__(self, in_channels=64):  # plan 2
+#     super(FeatureAggregation, self).__init__()
+#     self.query_conv = MyConv(in_channels, in_channels >> 1, kernel_size=1, stride=1, padding=0,
+#                              use_bias=True, is_bn=False, is_act=False)
+#     self.key_conv = MyConv(in_channels, in_channels >> 1, kernel_size=1, stride=1, padding=0,
+#                            use_bias=True, is_bn=False, is_act=False)
+#     self.value_conv = MyConv(in_channels, in_channels, kernel_size=1, stride=1, padding=0,
+#                              is_bn=False, is_act=False)
+#     self.gamma = nn.Parameter(torch.zeros(1))
+#     self.softmax = nn.Softmax(dim=1)
+#     self.scconv = MyConv(in_channels, in_channels >> 1, kernel_size=1, is_bn=False, is_act=False)
+#
+# def forward(self, x1, x2):
+#     x = torch.cat([x1, x2], dim=1)
+#     b, c, h, w = x.size()
+#     q = self.query_conv(x).view(b, -1, h * w).permute(0, 2, 1)
+#     k = self.key_conv(x).view(b, -1, h * w)
+#     am = torch.bmm(q, k)
+#     a = self.softmax(am)
+#     v = self.value_conv(x).view(b, -1, h * w)
+#     out = torch.bmm(v, a.permute(0, 2, 1))
+#     out = out.view(b, c, h, w)
+#     out = self.gamma * out + x
+#     out = self.scconv(out)
+#     return out

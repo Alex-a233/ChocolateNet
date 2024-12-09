@@ -4,7 +4,6 @@ import time
 
 import cv2
 import matplotlib.pyplot as plt
-import numpy
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,8 +12,7 @@ from PIL import Image
 from ptflops import get_model_complexity_info
 from skimage.measure import regionprops, label, find_contours
 from torch.utils.data import DataLoader, Dataset
-from torchvision.datasets import ImageFolder
-from torchvision.transforms import Resize, transforms
+from torchvision.transforms import transforms
 from tqdm import tqdm
 
 from backbone.pvtv2 import PvtV2B2
@@ -109,38 +107,6 @@ def process_bkai_dataset():
 
 
 def calc_mean_std():
-
-    # train_imgs = [os.path.join('./dataset/trainset/images', img) for img in os.listdir('./dataset/trainset/images')
-    # if img.endswith('.png')]
-    #
-    # mean = [0.0, 0.0, 0.0]
-    # std = [0.0, 0.0, 0.0]
-    #
-    # num = len(train_imgs)
-    #
-    # for train_img in train_imgs:
-    #     img = cv2.imread(train_img, cv2.IMREAD_COLOR).astype(np.float32)
-    #     img = cv2.resize(img, (352, 352))
-    #     mean, std = cv2.meanStdDev(img)
-    #
-    #     mean[0] += mean[0]
-    #     mean[1] += mean[1]
-    #     mean[2] += mean[2]
-    #
-    #     std[0] += std[0]
-    #     std[1] += std[1]
-    #     std[2] += std[2]
-    #
-    # mean[0] /= num
-    # mean[1] /= num
-    # mean[2] /= num
-    #
-    # std[0] /= num
-    # std[1] /= num
-    # std[2] /= num
-    #
-    # print('train_set\'s \nmean = {}, \nstd = {}'.format(mean, std))
-
     dataset = SegmentationDataset()
     # 假设 dataset 是一个 PyTorch 的数据集
     train_loader = DataLoader(dataset, batch_size=1, shuffle=False)
@@ -149,7 +115,8 @@ def calc_mean_std():
     mean = torch.zeros(3)
     std = torch.zeros(3)
     # for img, _ in train_loader:
-    for img in train_loader:
+    for name, img in train_loader:
+        print('processing {} ...'.format(name))
         for c in range(3):
             mean[c] += img[:, c, :, :].mean()
             std[c] += img[:, c, :, :].std()
@@ -162,9 +129,10 @@ def calc_mean_std():
 
 class SegmentationDataset(Dataset):
 
-    def __init__(self, root_dir='D:/Study/polyp_dataset'):
+    # def __init__(self, root_dir='D:/Study/polyp_dataset'):
+    def __init__(self, root_dir='D:\\Study\\pyspace\\SANet\\data\\test\\ETIS-LaribPolypDB'):
         self.root_dir = root_dir
-        self.image_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'images')) if f.endswith('.png')])
+        self.image_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'image')) if f.endswith('.png')])
         # self.mask_files = sorted([f for f in os.listdir(os.path.join(root_dir, 'masks')) if f.endswith('.png')])
         self.image_transform = transforms.Compose([
             transforms.ToTensor()
@@ -174,7 +142,7 @@ class SegmentationDataset(Dataset):
         return len(self.image_files)
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.root_dir, 'images', self.image_files[idx])
+        image_path = os.path.join(self.root_dir, 'image', self.image_files[idx])
         # mask_path = os.path.join(self.root_dir, 'masks', self.mask_files[idx])
 
         image = Image.open(image_path).convert('RGB')
@@ -184,10 +152,10 @@ class SegmentationDataset(Dataset):
         # mask = self.image_transform(mask)
 
         # return image, mask
-        return image
+        return self.image_files[idx], image
 
     def get_image(self, i):
-        image_path = os.path.join(self.root_dir, 'images', self.image_files[i])
+        image_path = os.path.join(self.root_dir, 'image', self.image_files[i])
         image = Image.open(image_path).convert('RGB')
         return image
 
@@ -409,6 +377,22 @@ class BAModule(nn.Module):
         model_dict.update(state_dict)
         self.backbone.load_state_dict(model_dict)
 
+        # 最初版本
+        # self.conv2 = MyConv(128, 32, 1, is_act=False)
+        # self.conv3 = MyConv(320, 32, 1, is_act=False)
+        # self.conv4 = MyConv(512, 32, 1, is_act=False)
+        #
+        # self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        #
+        # self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        # self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True, is_act=False)
+        #
+        # self.conv5 = MyConv(96, 32, 3, padding=1, is_act=False)
+
         # BA 取后三个特征图，改通道数
         self.conv2 = MyConv(128, 32, 1, use_bias=True)
         self.conv3 = MyConv(320, 32, 1, use_bias=True)
@@ -444,7 +428,8 @@ class BAModule(nn.Module):
         x3_2 = self.convs3_2(abs(self.up(x3) - x2))  # 2,3层异同点
         x4_2 = self.convs4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
         x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
-        x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
+        # x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
+        x4_3_2 = self.convs4_3_2(abs(abs(x3_2 - x4_2) - self.up(x4_3)))
 
         # origin version
         o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
@@ -453,9 +438,10 @@ class BAModule(nn.Module):
 
         res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
-        res = res * x4_3_2
+        # res = res * x4_3_2
         res = res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
 
+        res = self.up(res)
         return res
 
 
@@ -473,7 +459,7 @@ def test_boundary_attention():
 
     conv = nn.Conv2d(32, 3, kernel_size=(1, 1))
     conv.cuda()
-    up = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
+    up = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
     for step, (images, masks) in enumerate(trainset_loader, start=1):
         images = images.cuda().float()
         # masks = masks.cuda().float()
@@ -493,14 +479,32 @@ class SAModule(nn.Module):
 
     def __init__(self):
         super(SAModule, self).__init__()
-        # SA
+        self.backbone = PvtV2B2()
+        path = './pretrained_args/pvt_v2_b2.pth'
+        save_model = torch.load(path)
+        model_dict = self.backbone.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.backbone.load_state_dict(model_dict)
+        # SA v1
+        # self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        # self.max_pool = nn.AdaptiveMaxPool2d(1)
+        # self.fc1 = MyConv(64, 4, 1, is_bn=False, is_act=False)
+        # self.fc2 = MyConv(4, 64, 1, is_bn=False, is_act=False)
+        # self.relu = nn.ReLU()
+        #
+        # self.conv = MyConv(2, 1, 7, padding=3, is_bn=False, is_act=False)
+        # self.conv1 = MyConv(64, 32, 1, use_bias=True, is_act=False)
+
+        # SA v2
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
-        self.fc1 = MyConv(64, 4, 1, is_bn=False, is_act=False)
-        self.fc2 = MyConv(4, 64, 1, is_bn=False, is_act=False)
+        self.fc1 = MyConv(64, 64 // 16, 1, is_bn=False, is_act=False)
+        self.fc2 = MyConv(64, 64 // 16, 1, is_bn=False, is_act=False)
+        self.fc3 = MyConv(64 // 16, 64, 1, is_bn=False, is_act=False)
+        self.fc4 = MyConv(64 // 16, 64, 1, is_bn=False, is_act=False)
         self.relu = nn.ReLU()
-
-        self.conv = MyConv(2, 1, 7, padding=3, is_bn=False, is_act=False)
+        self.conv = MyConv(1, 1, 7, padding=3, is_bn=False, is_act=False)
         self.conv1 = MyConv(64, 32, 1, use_bias=True, is_act=False)
 
     def forward(self, x):
@@ -510,14 +514,29 @@ class SAModule(nn.Module):
         # x3 = pvt[2]  # (bs, 320, 22, 22)
         # x4 = pvt[3]  # (bs, 512, 11, 11)
 
-        avg_res = self.fc2(self.relu(self.fc1(self.avg_pool(x1))))
-        max_res = self.fc2(self.relu(self.fc1(self.max_pool(x1))))
+        # v1
+        # avg_res = self.fc2(self.relu(self.fc1(self.avg_pool(x1))))
+        # max_res = self.fc2(self.relu(self.fc1(self.max_pool(x1))))
+        # am_res = avg_res + max_res
+        # t = torch.sigmoid(am_res) * x1
+        #
+        # avg_res = torch.mean(t, dim=1, keepdim=True)
+        # max_res, _ = torch.max(t, dim=1, keepdim=True)
+        # res = torch.cat([avg_res, max_res], dim=1)
+        # res = self.conv(res)
+        # res = torch.sigmoid(res) * t
+        # res0 = self.conv1(res)
+        # res = self.conv1(res) + self.conv1(x1)
+
+        # SA v2
+        avg_res = self.fc3(self.relu(self.fc1(self.avg_pool(x1))))
+        max_res = self.fc4(self.relu(self.fc2(self.max_pool(x1))))
         am_res = avg_res + max_res
         t = torch.sigmoid(am_res) * x1
 
         avg_res = torch.mean(t, dim=1, keepdim=True)
         max_res, _ = torch.max(t, dim=1, keepdim=True)
-        res = torch.cat([avg_res, max_res], dim=1)
+        res = avg_res + max_res
         res = self.conv(res)
         res = torch.sigmoid(res) * t
         res0 = self.conv1(res)
@@ -529,7 +548,7 @@ class SAModule(nn.Module):
 def test_structure_attention():
     model = SAModule()
     model.cuda()
-    parser = argparse.ArgumentParser(description='here is training arguments')
+    parser = argparse.ArgumentParser(description='here is the training arguments')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')
     parser.add_argument('--train_path', type=str, default='./dataset/trainset/', help='training set path')
@@ -553,7 +572,7 @@ def test_structure_attention():
 
         origin = images.squeeze().permute(1, 2, 0).data.cpu().numpy()
         cimg = np.hstack((origin, res0, res))
-        cv2.imshow('origin & ba_res', cimg)
+        cv2.imshow('origin & sa_res', cimg)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         if step == 10:
@@ -602,7 +621,7 @@ class FAModule(nn.Module):
         self.normalize = normalize
         self.num_s = num_s
         self.num_n = mids ** 2
-        self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
+        self.priors = nn.AdaptiveAvgPool2d(output_size=(mids << 1, mids << 1))
 
         self.conv_state = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
         self.conv_proj = MyConv(num_in, self.num_s, kernel_size=1, use_bias=True, is_bn=False, is_act=False)
@@ -659,7 +678,7 @@ class FAModule(nn.Module):
         x_state_reshaped = self.conv_state(ba_res).view(b, self.num_s, -1)
         x_proj = self.conv_proj(ba_res)
         x_mask = x_proj * edge
-        x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
+        x_anchor = self.priors(x_mask)[:, :, 2:-2, 2:-2].reshape(b, self.num_s, -1)
         x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
         x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
         x_rproj_reshaped = x_proj_reshaped
@@ -669,6 +688,7 @@ class FAModule(nn.Module):
         if self.normalize:
             x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
         x_b_rel = self.gcn(x_b_state)
+        # x_b_rel = self.cconv(x_b_state)
 
         # Reproject
         x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
@@ -764,7 +784,7 @@ def retest_failed_cases():
     model.eval()
     model.cuda()
 
-    # TODO: an experiment for discovery ba_output, sa_output, fa_output
+    # an experiment for discovery ba_output, sa_output, fa_output
     failed_cases = {'BKAI-IGH-NEOPOLYP': [14, 819, 853, 945, 951, 568, 492, 342], 'CVC-ClinicDB': [46],
                     'CVC-ColonDB': [111, 198, 220, 233, 239, 282, 290],
                     'ETIS-LaribPolypDB': [149, 126, 164, 166, 168, 104]}
@@ -778,7 +798,7 @@ def retest_failed_cases():
             image, mask, name = test_set.get_data(i)
             image = image.cuda()
             model(image)
-    # TODO: an experiment for discovery ba_output, sa_output, fa_output
+    # an experiment for discovery ba_output, sa_output, fa_output
 
 
 def detect_all_black():
@@ -851,11 +871,11 @@ def test_new_transforms():
 if __name__ == '__main__':
     # progress_bar()
 
-    # experiment_of_dye()
+    experiment_of_dye()
 
     # process_bkai_dataset()
 
-    calc_mean_std()
+    # calc_mean_std()
 
     # sum_dict = count_polyp()
 

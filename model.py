@@ -41,7 +41,8 @@ class ChocolateNet(nn.Module):
         pred1 = self.up(ba_res)
         pred2 = self.up(fa_res)
         # 换成仅 pred2 性能会下降
-        return pred1 * pred2  # TODO: 换成 pred1 * pred2 会如何？| + x 会如何？
+        # return pred1 * pred2  # 性能尚可
+        return pred1 + pred2
 
 
 if __name__ == '__main__':
