@@ -2,59 +2,55 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.toy_block import MyConv, RFBBlock, CFBlock
-
-
-class ReverseAttention(nn.Module):
-
-    def __init__(self, in_channel, out_channel, depth=3, kernel_size=3, padding=1):
-        super(ReverseAttention, self).__init__()
-        self.conv_in = MyConv(in_channel, out_channel, 1, is_act=False)
-        self.conv_mid = nn.ModuleList()
-        for i in range(depth):
-            self.conv_mid.append(MyConv(out_channel, out_channel, kernel_size, padding=padding, is_act=False))
-        self.conv_out = MyConv(out_channel, 1, 1, is_act=False)
-
-    def forward(self, x, fm):
-        fm = F.interpolate(fm, size=x.shape[2:], mode='bilinear', align_corners=False)
-        rfm = -1 * (torch.sigmoid(fm)) + 1
-
-        x = rfm.expand(-1, x.shape[1], -1, -1).mul(x)
-        x = self.conv_in(x)
-        for mid_conv in self.conv_mid:
-            x = F.relu(mid_conv(x), inplace=True)
-        out = self.conv_out(x)
-        res = out + fm
-
-        return res
+from utils.toy_block import MyConv
 
 
 class BoundaryAttention(nn.Module):
 
     def __init__(self):
         super(BoundaryAttention, self).__init__()
-        self.rfb2 = RFBBlock(128, 64)
-        self.rfb3 = RFBBlock(320, 64)
-        self.rfb4 = RFBBlock(512, 64)
 
-        self.cfb = CFBlock(64)
+        self.conv2 = MyConv(128, 32, 1, use_bias=True)
+        self.conv3 = MyConv(320, 32, 1, use_bias=True)
+        self.conv4 = MyConv(512, 32, 1, use_bias=True)
 
-        self.ra2 = ReverseAttention(128, 64, depth=2)
-        self.ra3 = ReverseAttention(320, 64, depth=2, kernel_size=5, padding=2)
-        self.ra4 = ReverseAttention(512, 64, depth=3, kernel_size=7, padding=3)
+        self.convs3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+
+        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+
+        self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
     def forward(self, x2, x3, x4):
-        # deal with x2,3,4 with receptive field block
-        rfb_x2 = self.rfb2(x2)
-        rfb_x3 = self.rfb3(x3)
-        rfb_x4 = self.rfb4(x4)
-        # cascade aggregate 3 rfb_res, get cfb_res
-        cfb_res = self.cfb(rfb_x4, rfb_x3, rfb_x2)
-        # deal with x2,3,4
-        ra4_res = self.ra4(x4, cfb_res)
-        ra3_res = self.ra3(x3, ra4_res)
-        ra2_res = self.ra2(x2, ra3_res)
-        return ra2_res
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+        x4 = self.conv4(x4)
+
+        # 后两个上采样，三个特征图做减法，减出有差异的边界像素
+        x3_2 = self.convs3_2(abs(self.up(x3) - x2))  # 2,3层异同点
+        x4_2 = self.convs4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
+        x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
+        x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
+
+        # o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
+        # o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
+        # o4_3 = self.convm4_3(self.up(x4)) * x3 * x4_3
+
+        # +* 试试
+        o3_2 = (self.convm3_2(self.up(x3)) + x2) * x3_2
+        o4_2 = (self.convm4_2(self.up(self.up(x4))) + x2) * x4_2
+        o4_3 = (self.convm4_3(self.up(x4)) + x3) * x4_3
+
+        res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
+        res = self.conv5(res)
+        res = res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
+
+        return res
 
 
 class ChannelAttention(nn.Module):
@@ -63,21 +59,24 @@ class ChannelAttention(nn.Module):
         super(ChannelAttention, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
-        self.fc1 = MyConv(in_channel, in_channel // 16, 1, is_bn=False)
-        self.fc2 = MyConv(in_channel // 16, in_channel, 1, is_bn=False)
+        self.fc1 = MyConv(in_channel, in_channel // 16, 1, is_bn=False, is_act=False)
+        self.fc2 = MyConv(in_channel // 16, in_channel, 1, is_bn=False, is_act=False)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
-        avg_res = self.fc2(self.fc1(self.avg_pool(x)))
-        max_res = self.fc2(self.fc1(self.max_pool(x)))
+        avg_res = self.fc2(self.relu(self.fc1(self.avg_pool(x))))
+        max_res = self.fc2(self.relu(self.fc1(self.max_pool(x))))
         res = avg_res + max_res
         return torch.sigmoid(res)
 
 
 class SpatialAttention(nn.Module):
 
-    def __init__(self, kernel_size=1):
+    def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
-        self.conv = MyConv(2, 1, kernel_size, is_bn=False)
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+        self.conv = MyConv(2, 1, kernel_size, padding=padding, is_bn=False, is_act=False)
 
     def forward(self, x):
         avg_res = torch.mean(x, dim=1, keepdim=True)
@@ -87,15 +86,19 @@ class SpatialAttention(nn.Module):
         return torch.sigmoid(res)
 
 
-class StructureAttention(nn.Module):
+class StructureAttention(nn.Module):  # CBAM...凸(艹皿艹 )
 
     def __init__(self):
         super(StructureAttention, self).__init__()
-        self.sa = SpatialAttention()
         self.ca = ChannelAttention(64)
+        self.sa = SpatialAttention()
+        self.conv = MyConv(64, 32, 1, use_bias=True)
 
     def forward(self, x):
-        res = self.sa(self.ca(x) * x) * x
+        x = self.ca(x) * x
+        x = self.sa(x) * x
+        res = self.conv(x)
+        res = F.interpolate(res, scale_factor=0.5, mode='bilinear', align_corners=True)
         return res
 
 

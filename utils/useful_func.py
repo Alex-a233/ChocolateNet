@@ -15,13 +15,21 @@ def print_save(info, path, file_name):
     f.close()
 
 
+# 不打印仅保存日志信息
+def just_save(info, path, file_name):
+    empty_create(path)
+    f = open(path + file_name, 'a')
+    f.write(info + '\n')
+    f.close()
+
+
 # 不存在则创建路径
 def empty_create(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
 
-# 梯度剪裁 TODO:训练较为稳定再加入这个
+# 梯度剪裁
 def clip_gradient(optimizer, grad_clip):
     for param_group in optimizer.param_groups:
         for param in param_group['params']:
@@ -30,12 +38,17 @@ def clip_gradient(optimizer, grad_clip):
 
 
 # 计算时间损耗
-def calculate_time_loss(start_time, end_time, process_type):
+def calculate_time_loss(start_time, end_time, process_type, args):
     cost_time = str(end_time - start_time).split(':')
     hours = int(cost_time[0])
     minutes = int(cost_time[1])
     seconds = int(cost_time[2].split('.')[0])
-    print('%s took %s hours %s minutes %s seconds' % (process_type, hours, minutes, seconds))
+
+    if process_type == 'Training':
+        print_save('%s took %s hours %s minutes %s seconds' % (process_type, hours, minutes, seconds), args.log_path,
+                   args.log_name)
+    else:
+        print('%s took %s hours %s minutes %s seconds' % (process_type, hours, minutes, seconds))
 
 
 # 选择最佳模型权重参数
@@ -51,7 +64,7 @@ def choose_best(model, args):
         mask_path = os.path.join(eval_path, dataset, 'masks/')
         image_list = [f for f in os.listdir(image_path) if f.endswith('.png')]
         cur_image_num = len(image_list)
-        cur_dice_sum = 0.
+        cur_dice_sum = 0.0
         image_num += cur_image_num
 
         testset_loader = TestSet(image_path, mask_path, args.eval_size)
@@ -72,8 +85,9 @@ def choose_best(model, args):
             pred = np.reshape(pred, -1)
             mask = np.reshape(mask, -1)
 
-            intersection = pred * mask
-            dice = (2 * intersection.sum() + eps) / (pred.sum() + mask.sum() + eps)
+            inter = pred * mask
+            union = pred.sum() + mask.sum()
+            dice = (2 * inter.sum() + eps) / (union + eps)
             dice = '{:.4f}'.format(dice)
             dice = float(dice)
             cur_dice_sum += dice
