@@ -11,15 +11,13 @@ class ChocolateNet(nn.Module):
     def __init__(self):
         super(ChocolateNet, self).__init__()
         self.backbone = PvtV2B2()
-        state_dict = torch.load('./pretrained_args/pvt_v2_b2.pth')
-        model_state_dict = self.backbone.state_dict()
-        model_state_dict_keys = model_state_dict.keys()
-        state_dict_items = state_dict.items()
-        state_dict = {k: v for k, v in state_dict_items if k in model_state_dict_keys}
-        model_state_dict.update(state_dict)
-        self.backbone.load_state_dict(model_state_dict)
+        state_dict = self.backbone.state_dict()
+        save_model = torch.load('./pretrained_args/pvt_v2_b2.pth')
+        model_state_dict = {k: v for k, v in save_model.items() if k in state_dict.keys()}
+        state_dict.update(model_state_dict)
+        self.backbone.load_state_dict(state_dict)
 
-        # 1. Boundary Attention Module(RA+SA)
+        # 1. Boundary Attention Module
         self.ba = BoundaryAttention()
         # 2. Structure Attention Module(CA+SA)
         self.sa = StructureAttention()
