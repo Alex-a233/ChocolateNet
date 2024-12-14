@@ -1,1 +1,6 @@
+/dataset/
 /log/
+/predicts/
+/pretrained_args/
+/test_record/
+/snapshot/

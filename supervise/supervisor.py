@@ -40,7 +40,7 @@ class Supervisor(nn.Module):  # refers from MSNet
         return sup_loss
 
 
-def iou_loss(pred, mask):  # TODO: after model converged, try biou
+def iou_loss(pred, mask):
     pred = torch.sigmoid(pred)
     inter = (pred * mask).sum(dim=(2, 3))
     union = (pred + mask).sum(dim=(2, 3))
