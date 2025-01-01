@@ -846,16 +846,19 @@ def test_new_transforms():
         # transforms.Resize((352, 352)),
         # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色
         # transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1)),
-        # transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
+        transforms.ColorJitter(brightness=(0.6, 1.6), contrast=0.2, saturation=0.1, hue=0.01),
         # reference from ColonFormer
         # # 高斯模糊，标准差0.001-2.0
         # transforms.GaussianBlur((25, 25), sigma=(0.001, 2.0)),
         # # 图像的亮度调整为0.4，对比度调整为0.5，饱和度调整为0.25，色度调整为0.01
         # transforms.ColorJitter(brightness=0.4, contrast=0.5, saturation=0.25, hue=0.01),
         transforms.ToTensor(),
-        # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        # transforms.Normalize([0.497, 0.301, 0.216], [0.298, 0.208, 0.161])  # trainset 的通道级标准化系数
+        # transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
+        # transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
+        # transforms.Normalize([0.602, 0.431, 0.372], [0.236, 0.211, 0.195])  # ETIS 的通道级标准化系数
     ])
-    dataset = SegmentationDataset(transform=transform)
+    dataset = SegmentationDataset()
     for i in range(10):
         image = dataset.get_image(i)
         # img0 = np.array(image)
@@ -868,10 +871,27 @@ def test_new_transforms():
         cv2.destroyAllWindows()
 
 
+def test_dye_str():
+    # img = Image.open('D:/Study/pyspace/ChocolateNet/useful_articles/juice.png')
+    img = Image.open('D:/Study/pyspace/ChocolateNet/dataset/testset/ETIS-LaribPolypDB/images/122.png')
+    img.show()
+
+    img = img.convert('RGB')
+    data = img.getdata()
+    new_data = []
+    for c in data:
+        if c[0] > c[1] and c[0] > c[2]:  # (r = 1, g = 1, b = 0) => yellow
+            new_data.append((36, 59, 142))  # 靛胭脂
+        else:
+            new_data.append(c)
+    img.putdata(new_data)
+    img.show()
+
+
 if __name__ == '__main__':
     # progress_bar()
 
-    experiment_of_dye()
+    # experiment_of_dye()
 
     # process_bkai_dataset()
 
@@ -906,3 +926,5 @@ if __name__ == '__main__':
     # show_boundary()
 
     # test_new_transforms()
+
+    test_dye_str()

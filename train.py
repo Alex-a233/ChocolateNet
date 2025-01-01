@@ -37,7 +37,6 @@ def train(model, trainset_loader, args):
         for step, pairs in enumerate(trainset_loader, start=1):
             for size_rate in size_rates:
                 images, masks = pairs
-
                 images = images.cuda().float()
                 masks = masks.cuda().float()
 
@@ -51,9 +50,12 @@ def train(model, trainset_loader, args):
                 optimizer.zero_grad()
                 # use amp.autocast
                 with autocast():
-                    preds = model(images)
-                    bce_loss, dice_loss = wbce_wdice(preds, masks)
+                    pred1, pred2 = model(images)
+                    bce_loss1, dice_loss1 = wbce_wdice(pred1, masks)
+                    bce_loss2, dice_loss2 = wbce_wdice(pred2, masks)
                     # calculate total loss
+                    bce_loss = bce_loss1 + bce_loss2
+                    dice_loss = dice_loss1 + dice_loss2
                     loss = (bce_loss + dice_loss).mean()
 
                 try:
@@ -85,7 +87,7 @@ def train(model, trainset_loader, args):
         # save the best model weights args if cur mdice better than ever before
         if mean_dice > best_mdice:
             # visualized the pred
-            pred_images = tvu.make_grid(preds, normalize=False, scale_each=True)
+            pred_images = tvu.make_grid(pred1 + pred2, normalize=False, scale_each=True)
             logger.add_image('{}/preds/'.format(epoch), pred_images, epoch)
             best_mdice = mean_dice
             # create save path
@@ -120,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
-    parser.add_argument('--weight_decay', type=float, default=3e-2, help='weight decay')
+    parser.add_argument('--weight_decay', type=float, default=3e-2, help='weight decay')  # TODO: maybe decrease it~
     parser.add_argument('--early_stopping_patience', type=int, default=30, help='patience for epoch number')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')

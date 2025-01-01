@@ -76,7 +76,8 @@ def choose_best(model, args):
             mask /= (mask.max(initial=.0) + eps)
 
             image = image.cuda()
-            pred = model(image)
+            pred1, pred2 = model(image)
+            pred = pred1 + pred2
 
             pred = F.interpolate(pred, size=mask.shape, mode='bilinear', align_corners=False)
             pred = pred.sigmoid().data.cpu().numpy().squeeze()

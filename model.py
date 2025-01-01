@@ -25,8 +25,10 @@ class ChocolateNet(nn.Module):
         self.sa = StructureAttention()
         # 3. Feature Aggregation Module
         self.fa = FeatureAggregation()
+
         self.out_ba = MyConv(32, 1, 1, use_bias=True, is_bn=False, is_act=False)
         self.out_fa = MyConv(32, 1, 1, use_bias=True, is_bn=False, is_act=False)
+
         self.up = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
 
     def forward(self, x):
@@ -44,13 +46,14 @@ class ChocolateNet(nn.Module):
         pred2 = self.up(fa_res)
         # 换成仅 pred2 性能会下降
         # return pred1 * pred2  # 性能尚可
-        return pred1 + pred2
+        return pred1, pred2
 
 
 if __name__ == '__main__':
     model = ChocolateNet().cuda()
     x = torch.randn(1, 3, 352, 352).cuda()
-    pred = model(x)
+    pred1, pred2 = model(x)
+    pred = pred1 + pred2
     print(pred.shape)
 
     # Polyp-PVT's performance
