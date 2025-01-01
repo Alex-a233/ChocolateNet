@@ -19,7 +19,7 @@ class ChocolateNet(nn.Module):
         model_state_dict.update(state_dict)
         self.backbone.load_state_dict(model_state_dict)
 
-        # 1. Boundary Attention Module(RA+SA)
+        # 1. Boundary Attention Module
         self.ba = BoundaryAttention()
         # 2. Structure Attention Module(CA+SA)
         self.sa = StructureAttention()

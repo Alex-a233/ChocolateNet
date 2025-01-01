@@ -185,7 +185,7 @@ class ContextBlock(nn.Module):
         assert len(fusion_types) > 0, 'at least one fusion should be used'
 
         self.in_planes = in_planes
-        self.planes = int(in_planes * ratio)
+        self.out_planes = int(in_planes * ratio)
         self.pooling_type = pooling_type
 
         if pooling_type == 'att':
@@ -196,19 +196,19 @@ class ContextBlock(nn.Module):
 
         if 'channel_add' in fusion_types:
             self.channel_add_conv = nn.Sequential(
-                nn.Conv2d(self.in_planes, self.planes, kernel_size=1),
-                nn.LayerNorm([self.planes, 1, 1]),
+                nn.Conv2d(self.in_planes, self.out_planes, kernel_size=1),
+                nn.LayerNorm([self.out_planes, 1, 1]),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(self.planes, self.in_planes, kernel_size=1))
+                nn.Conv2d(self.out_planes, self.in_planes, kernel_size=1))
         else:
             self.channel_add_conv = None
 
         if 'channel_mul' in fusion_types:
             self.channel_mul_conv = nn.Sequential(
-                nn.Conv2d(self.in_planes, self.planes, kernel_size=1),
-                nn.LayerNorm([self.planes, 1, 1]),
+                nn.Conv2d(self.in_planes, self.out_planes, kernel_size=1),
+                nn.LayerNorm([self.out_planes, 1, 1]),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(self.planes, self.in_planes, kernel_size=1))
+                nn.Conv2d(self.out_planes, self.in_planes, kernel_size=1))
         else:
             self.channel_mul_conv = None
 

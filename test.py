@@ -36,7 +36,8 @@ def test(args):
             mask = np.array(mask, np.float32)  # exchange mask's height and width
 
             image = image.cuda()
-            pred = model(image)
+            pred1, pred2 = model(image)
+            pred = pred1 + pred2
             pred = F.interpolate(pred, size=mask.shape, mode='bilinear', align_corners=False)[0][0]
 
             # refers from PCS in SANet, enforce the contrast between pos & neg samples

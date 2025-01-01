@@ -25,8 +25,8 @@ class TrainSet(Dataset):
         if self.use_aug:
             self.image_transform = T.Compose([
                 T.RandomRotation(45, expand=False, center=None, fill=None),
-                T.RandomHorizontalFlip(),
-                T.RandomVerticalFlip(),
+                T.RandomHorizontalFlip(p=0.2),
+                T.RandomVerticalFlip(p=0.2),
                 T.Resize((self.train_size, self.train_size)),
                 T.ToTensor(),
                 # 去掉这个对 ETIS 有好处
