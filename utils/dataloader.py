@@ -25,11 +25,10 @@ class TrainSet(Dataset):
         if self.use_aug:
             self.image_transform = T.Compose([
                 T.RandomRotation(45, expand=False, center=None, fill=None),
-                T.RandomHorizontalFlip(p=0.2),
-                T.RandomVerticalFlip(p=0.2),
+                T.RandomHorizontalFlip(),
+                T.RandomVerticalFlip(),
                 T.Resize((self.train_size, self.train_size)),
                 T.ToTensor(),
-                # 去掉这个对 ETIS 有好处
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet的通道级标准化参数
             ])
 

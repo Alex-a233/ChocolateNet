@@ -19,9 +19,13 @@ class BoundaryAttention(nn.Module):
         self.convs4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
         self.convs4_3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
 
-        self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
-        self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convm3_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convm4_2 = MyConv(32, 32, 3, padding=1, use_bias=True)
+        # self.convm4_3 = MyConv(32, 32, 3, padding=1, use_bias=True)
+
+        self.convm3_2 = MyConv(64, 32, 3, padding=1, use_bias=True)
+        self.convm4_2 = MyConv(64, 32, 3, padding=1, use_bias=True)
+        self.convm4_3 = MyConv(64, 32, 3, padding=1, use_bias=True)
 
         self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
 
@@ -43,10 +47,15 @@ class BoundaryAttention(nn.Module):
         x4_3 = self.sig(x4_3)
         x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
         x4_3_2 = self.sig(x4_3_2)
+
+        # o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
+        # o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
+        # o4_3 = self.convm4_3(self.up(x4)) * x3 * x4_3
+
         # TODO: + replace with cat?
-        o3_2 = (self.convm3_2(self.up(x3)) + x2) * x3_2
-        o4_2 = (self.convm4_2(self.up(self.up(x4))) + x2) * x4_2
-        o4_3 = (self.convm4_3(self.up(x4)) + x3) * x4_3
+        o3_2 = self.convm3_2(torch.cat([self.up(x3), x2], dim=1)) * x3_2
+        o4_2 = self.convm4_2(torch.cat([self.up(self.up(x4)), x2], dim=1)) * x4_2
+        o4_3 = self.convm4_3(torch.cat([self.up(x4), x3], dim=1)) * x4_3
 
         res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
