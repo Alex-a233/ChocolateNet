@@ -873,7 +873,7 @@ def test_new_transforms():
 
 def test_dye_str():
     # img = Image.open('D:/Study/pyspace/ChocolateNet/useful_articles/juice.png')
-    img = Image.open('D:/Study/pyspace/ChocolateNet/dataset/testset/ETIS-LaribPolypDB/images/122.png')
+    img = Image.open('D:/Study/pyspace/ChocolateNet/dataset/testset/ETIS-LaribPolypDB/images/1.png')
     img.show()
 
     img = img.convert('RGB')
@@ -881,7 +881,10 @@ def test_dye_str():
     new_data = []
     for c in data:
         if c[0] > c[1] and c[0] > c[2]:  # (r = 1, g = 1, b = 0) => yellow
-            new_data.append((36, 59, 142))  # 靛胭脂
+            # new_data.append((36, 59, 142))  # 靛胭脂
+            # new_data.append((c[0], c[1], c[2] + 100))  # blue++
+            # new_data.append((c[0], c[1] + 100, c[2]))  # green++
+            new_data.append((c[0] + 100, c[1], c[2]))  # red++
         else:
             new_data.append(c)
     img.putdata(new_data)

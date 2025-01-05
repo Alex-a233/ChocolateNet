@@ -13,9 +13,7 @@ class ChocolateNet(nn.Module):
         self.backbone = PvtV2B2()
         state_dict = torch.load('./pretrained_args/pvt_v2_b2.pth')
         model_state_dict = self.backbone.state_dict()
-        model_state_dict_keys = model_state_dict.keys()
-        state_dict_items = state_dict.items()
-        state_dict = {k: v for k, v in state_dict_items if k in model_state_dict_keys}
+        state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict.keys()}
         model_state_dict.update(state_dict)
         self.backbone.load_state_dict(model_state_dict)
 
@@ -46,14 +44,13 @@ class ChocolateNet(nn.Module):
         pred2 = self.up(fa_res)
         # 换成仅 pred2 性能会下降
         # return pred1 * pred2  # 性能尚可
-        return pred1, pred2
+        return pred1 + pred2
 
 
 if __name__ == '__main__':
     model = ChocolateNet().cuda()
     x = torch.randn(1, 3, 352, 352).cuda()
-    pred1, pred2 = model(x)
-    pred = pred1 + pred2
+    pred = model(x)
     print(pred.shape)
 
     # Polyp-PVT's performance

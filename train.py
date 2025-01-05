@@ -50,12 +50,9 @@ def train(model, trainset_loader, args):
                 optimizer.zero_grad()
                 # use amp.autocast
                 with autocast():
-                    pred1, pred2 = model(images)
-                    bce_loss1, dice_loss1 = wbce_wdice(pred1, masks)
-                    bce_loss2, dice_loss2 = wbce_wdice(pred2, masks)
+                    pred = model(images)
+                    bce_loss, dice_loss = wbce_wdice(pred, masks)
                     # calculate total loss
-                    bce_loss = bce_loss1 + bce_loss2
-                    dice_loss = dice_loss1 + dice_loss2
                     loss = (bce_loss + dice_loss).mean()
 
                 try:
@@ -87,7 +84,7 @@ def train(model, trainset_loader, args):
         # save the best model weights args if cur mdice better than ever before
         if mean_dice > best_mdice:
             # visualized the pred
-            pred_images = tvu.make_grid(pred1 + pred2, normalize=False, scale_each=True)
+            pred_images = tvu.make_grid(pred, normalize=False, scale_each=True)
             logger.add_image('{}/preds/'.format(epoch), pred_images, epoch)
             best_mdice = mean_dice
             # create save path

@@ -24,16 +24,16 @@ class TrainSet(Dataset):
 
         if self.use_aug:
             self.image_transform = T.Compose([
-                T.RandomRotation(45, expand=False, center=None, fill=None),
+                T.RandomRotation(90, expand=False, center=None, fill=None),
                 T.RandomHorizontalFlip(),
                 T.RandomVerticalFlip(),
                 T.Resize((self.train_size, self.train_size)),
                 T.ToTensor(),
-                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet的通道级标准化参数
+                # T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet的通道级标准化参数
             ])
 
             self.mask_transform = T.Compose([
-                T.RandomRotation(45, expand=False, center=None, fill=None),
+                T.RandomRotation(90, expand=False, center=None, fill=None),
                 T.RandomHorizontalFlip(),
                 T.RandomVerticalFlip(),
                 T.Resize((self.train_size, self.train_size)),

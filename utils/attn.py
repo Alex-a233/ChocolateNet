@@ -31,8 +31,6 @@ class BoundaryAttention(nn.Module):
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
-        self.sig = nn.Sigmoid()
-
     def forward(self, x2, x3, x4):
         x2 = self.conv2(x2)
         x3 = self.conv3(x3)
@@ -40,13 +38,9 @@ class BoundaryAttention(nn.Module):
 
         # 后两个上采样，三个特征图做减法，减出有差异的边界像素
         x3_2 = self.convs3_2(abs(self.up(x3) - x2))  # 2,3层异同点
-        x3_2 = self.sig(x3_2)
         x4_2 = self.convs4_2(abs(self.up(self.up(x4)) - x2))  # 2,4层异同点
-        x4_2 = self.sig(x4_2)
         x4_3 = self.convs4_3(abs(self.up(x4) - x3))  # 3,4层异同点
-        x4_3 = self.sig(x4_3)
         x4_3_2 = self.convs4_3_2(x3_2 + x4_2 + self.up(x4_3))  # 2,3,4层异同点
-        x4_3_2 = self.sig(x4_3_2)
 
         # o3_2 = self.convm3_2(self.up(x3)) * x2 * x3_2
         # o4_2 = self.convm4_2(self.up(self.up(x4))) * x2 * x4_2
