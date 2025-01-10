@@ -61,16 +61,21 @@ def experiment_of_dye():
         'COLORMAP_CIVIDIS': 17,
         'COLORMAP_DEEPGREEN': 21
     }
-    base_path = 'D://Study/pyspace/PraNet/data/TrainDataset/images/'
+    base_path = 'D://Study/pyspace/PraNet/data/TestDataset/ETIS-LaribPolypDB/images/'
     img_paths = [base_path + img for img in os.listdir(base_path) if img.endswith('.png')]
+    l = 0
     for img_path in img_paths:
         cpr_colormap(img_path, chosen_color_maps)
+        l += 1
+        if l == 10:
+            break
 
 
 def cpr_colormap(img_path, color_dict):
     h1 = []
     h2 = []
     origin_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    origin_img = cv2.resize(origin_img, (352, 352), interpolation=cv2.INTER_NEAREST)
     h1.append(origin_img)
     h2.append(origin_img)
     # cv2.imshow('origin_image', origin_img)
@@ -894,7 +899,7 @@ def test_dye_str():
 if __name__ == '__main__':
     # progress_bar()
 
-    # experiment_of_dye()
+    experiment_of_dye()
 
     # process_bkai_dataset()
 
@@ -930,4 +935,4 @@ if __name__ == '__main__':
 
     # test_new_transforms()
 
-    test_dye_str()
+    # test_dye_str()
