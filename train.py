@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
-    parser.add_argument('--weight_decay', type=float, default=3e-2, help='weight decay')  # TODO: maybe decrease it~
+    parser.add_argument('--weight_decay', type=float, default=4e-2, help='weight decay')
     parser.add_argument('--early_stopping_patience', type=int, default=30, help='patience for epoch number')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')

@@ -26,7 +26,6 @@ class TrainSet(Dataset):
             A.RandomRotate90(p=0.5),
             ToTensorV2()
         ])
-
         self.color1, self.color2 = [], []
         for name in self.images:
             if name[:-4].isdigit():  # ClinicDB
@@ -34,22 +33,24 @@ class TrainSet(Dataset):
             else:  # Kvasir
                 self.color2.append(name)
 
-    def __getitem__(self, i):  # TODO: try SANet's Color Exchange Strategy
-        name = self.images[i]
-        image1 = cv2.imread(self.image_path + '/' + name)
-        image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2LAB)
-        # TODO: change p, delay first wanna test if there is no init in attn.py
-        name2 = self.color1[i % len(self.color1)] if np.random.rand() > 0.7 else self.color2[i % len(self.color2)]
+        self.len1, self.len2 = len(self.color1), len(self.color2)
+
+    def __getitem__(self, index):  # ref SANet's Color Exchange Strategy
+        name = self.images[index]
+        image = cv2.imread(self.image_path + '/' + name)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        # TODO: change p = 1/2, delay first wanna test if there is no init in attn.py
+        p = np.random.rand()
+        name2 = self.color1[index % self.len1] if p < 0.7 else self.color2[index % self.len2]
         image2 = cv2.imread(self.image_path + '/' + name2)
         image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2LAB)
 
-        mean1, std1 = image1.mean(axis=(0, 1), keepdims=True), image1.std(axis=(0, 1), keepdims=True)
+        mean, std = image.mean(axis=(0, 1), keepdims=True), image.std(axis=(0, 1), keepdims=True)
         mean2, std2 = image2.mean(axis=(0, 1), keepdims=True), image2.std(axis=(0, 1), keepdims=True)
 
-        image = np.uint8((image1 - mean1) / std1 * std2 + mean2)
+        image = np.uint8((image - mean) / std * std2 + mean2)
         image = cv2.cvtColor(image, cv2.COLOR_LAB2RGB)
-        # dye strategy v1
-        # image = cv2.applyColorMap(image, 5)
+
         mask = cv2.imread(self.mask_path + '/' + name, cv2.IMREAD_GRAYSCALE) / 255.0
         pair = self.transform(image=image, mask=mask)
         pair['mask'] = torch.unsqueeze(pair['mask'], 0)
