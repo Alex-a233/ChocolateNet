@@ -41,9 +41,8 @@ class GCN(nn.Module):
 
 class FeatureAggregation(nn.Module):
 
-    def __init__(self, num_in=32, num_s=16, mids=4, normalize=False):  # plan 1
+    def __init__(self, num_in=32, num_s=16, mids=4):  # plan 1
         super(FeatureAggregation, self).__init__()
-        self.normalize = normalize
         self.num_s = num_s
         self.num_n = mids ** 2
         self.priors = nn.AdaptiveAvgPool2d(output_size=(mids + 2, mids + 2))
@@ -69,10 +68,6 @@ class FeatureAggregation(nn.Module):
 
         # Project and graph reason
         x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
-
-        if self.normalize:
-            x_b_state = x_b_state * (1. / x_state_reshaped.size(2))
-
         x_b_rel = self.gcn(x_b_state)
 
         # Reproject

@@ -18,29 +18,39 @@ class TrainSet(Dataset):
         self.image_path = os.path.join(args.train_path, 'images')
         self.mask_path = os.path.join(args.train_path, 'masks')
         self.images = [name for name in os.listdir(self.image_path) if name[0] != "."]
-        self.transform = A.Compose([
-            A.Normalize(),
-            A.Resize(args.train_size, args.train_size, interpolation=cv2.INTER_NEAREST),
-            A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.5),
-            A.RandomRotate90(p=0.5),
-            ToTensorV2()
-        ])
+
+        if args.use_aug:
+            self.transform = A.Compose([
+                A.Normalize(),
+                A.Resize(args.train_size, args.train_size, interpolation=cv2.INTER_NEAREST),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.RandomRotate90(p=0.5),
+                ToTensorV2()
+            ])
+        else:
+            self.transform = A.Compose([
+                A.Normalize(),
+                A.Resize(args.train_size, args.train_size, interpolation=cv2.INTER_NEAREST),
+                ToTensorV2()
+            ])
+
         self.color1, self.color2 = [], []
         for name in self.images:
             if name[:-4].isdigit():  # ClinicDB
                 self.color1.append(name)
             else:  # Kvasir
                 self.color2.append(name)
-
         self.len1, self.len2 = len(self.color1), len(self.color2)
+
+        random.seed(2025)
 
     def __getitem__(self, index):  # ref SANet's Color Exchange Strategy
         name = self.images[index]
         image = cv2.imread(self.image_path + '/' + name)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-        # TODO: change p = 1/2, delay first wanna test if there is no init in attn.py
-        p = np.random.rand()
+
+        p = random.rand()
         name2 = self.color1[index % self.len1] if p < 0.7 else self.color2[index % self.len2]
         image2 = cv2.imread(self.image_path + '/' + name2)
         image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2LAB)
@@ -100,7 +110,6 @@ if __name__ == '__main__':
     parser.add_argument('--eval_path', type=str, default='../dataset/testset/')
     args = parser.parse_args()
     train_set = TrainSet(args)
-    # print(train_set.size)
     image, mask = train_set.__getitem__(100)
     print(image.shape, mask.shape)
     test_set = TestSet(args.eval_path + 'Kvasir/images/', args.eval_path + 'Kvasir/masks/', args.train_size)
