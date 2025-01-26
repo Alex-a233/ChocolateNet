@@ -61,6 +61,8 @@ class TrainSet(Dataset):
         image = np.uint8((image - mean) / std * std2 + mean2)
         image = cv2.cvtColor(image, cv2.COLOR_LAB2RGB)
 
+        image = cv2.applyColorMap(image, 10)
+
         mask = cv2.imread(self.mask_path + '/' + name, cv2.IMREAD_GRAYSCALE) / 255.0
         pair = self.transform(image=image, mask=mask)
         pair['mask'] = torch.unsqueeze(pair['mask'], 0)
@@ -110,7 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--eval_path', type=str, default='../dataset/testset/')
     args = parser.parse_args()
     train_set = TrainSet(args)
-    image, mask = train_set.__getitem__(100)
+    image, mask = train_set.__getitem__(129)
     print(image.shape, mask.shape)
     test_set = TestSet(args.eval_path + 'Kvasir/images/', args.eval_path + 'Kvasir/masks/', args.train_size)
     image, mask, name = test_set.load_data()

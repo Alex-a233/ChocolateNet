@@ -29,45 +29,51 @@ def progress_bar():
 
 
 def experiment_of_dye():
-    all_color_maps = (
-        'COLORMAP_AUTUMN',  # 0
-        'COLORMAP_BONE',  # 1
-        'COLORMAP_JET',  # 2
-        'COLORMAP_WINTER',  # 3
-        'COLORMAP_RAINBOW',  # 4
-        'COLORMAP_OCEAN',  # 5
-        'COLORMAP_SUMMER',  # 6
-        'COLORMAP_SPRING',  # 7
-        'COLORMAP_COOL',  # 8
-        'COLORMAP_HSV',  # 9
-        'COLORMAP_PINK',  # 10
-        'COLORMAP_HOT',  # 11
-        'COLORMAP_PARULA',  # 12
-        'COLORMAP_MAGMA',  # 13
-        'COLORMAP_INFERNO',  # 14
-        'COLORMAP_PLASMA',  # 15
-        'COLORMAP_VIRIDIS',  # 16
-        'COLORMAP_CIVIDIS',  # 17
-        'COLORMAP_TWILIGHT',  # 18
-        'COLORMAP_TWILIGHT_SHIFTED',  # 19
-        'COLORMAP_TURBO',  # 20
-        'COLORMAP_DEEPGREEN'  # 21
-    )
+    all_color_maps = {
+        'AUTUMN': 0,  # 0
+        'BONE': 1,  # 1
+        'JET': 2,  # 2
+        'WINTER': 3,  # 3
+        'RAINBOW': 4,  # 4
+        'OCEAN': 5,  # 5
+        'SUMMER': 6,  # 6
+        'SPRING': 7,  # 7
+        'COOL': 8,  # 8
+        'HSV': 9,  # 9
+        'PINK': 10,  # 10
+        'HOT': 11,  # 11
+        'PARULA': 12,  # 12
+        'MAGMA': 13,  # 13
+        'INFERNO': 14,  # 14
+        'PLASMA': 15,  # 15
+        'VIRIDIS': 16,  # 16
+        'CIVIDIS': 17,  # 17
+        'TWILIGHT': 18,  # 18
+        'TWILIGHT_SHIFTED': 19,  # 19
+        'TURBO': 20,  # 20
+        'DEEPGREEN': 21  # 21
+    }
     chosen_color_maps = {
-        'COLORMAP_BONE': 1,
-        'COLORMAP_OCEAN': 5,
-        'COLORMAP_PINK': 10,
-        'COLORMAP_VIRIDIS': 16,
-        'COLORMAP_CIVIDIS': 17,
-        'COLORMAP_DEEPGREEN': 21
+        'BONE': 1,
+        'OCEAN': 5,
+        'PINK': 10,
+        'VIRIDIS': 16,
+        'CIVIDIS': 17,
+        'DEEPGREEN': 21
     }
     base_path = 'D://Study/pyspace/PraNet/data/TestDataset/ETIS-LaribPolypDB/images/'
     img_paths = [base_path + img for img in os.listdir(base_path) if img.endswith('.png')]
     l = 0
     for img_path in img_paths:
-        cpr_colormap(img_path, chosen_color_maps)
+        # cpr_colormap(img_path, chosen_color_maps)
+        img = cv2.imread(img_path)
+        for k, v in all_color_maps.items():
+            img = cv2.applyColorMap(img, v)
+            cv2.imshow(k, img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
         l += 1
-        if l == 10:
+        if l == 5:
             break
 
 
@@ -356,18 +362,21 @@ def calc_model_complexity():
     print('ChocolateNet\'s flops = {} and its params = {}'.format(flops, params))
 
 
-def calc_fps(n):
+def calc_fps():  # fps=26...
     model = ChocolateNet().cuda()
-    start_time = time.perf_counter()
 
-    for i in range(n):
-        x = torch.randn(16, 3, 352, 352).cuda()
-        model.forward(x)
+    with torch.no_grad():  # 关闭梯度计算
+        x = torch.randn(1, 3, 352, 352).cuda()
+        start_time = time.time()
 
-    end_time = time.perf_counter()
-    total_time = end_time - start_time
-    fps = n / total_time
-    print('ChocolateNet\'s fps = {:2f}'.format(fps))
+        for _ in range(100):
+            _ = model(x)
+
+        end_time = time.time()
+
+        total_time = end_time - start_time
+        fps = 100 / total_time
+        print('ChocolateNet\'s fps = {:2f}'.format(fps))
 
 
 class BAModule(nn.Module):
@@ -770,13 +779,6 @@ def find_goal():
     bkai = [0.66, 0.902]
     print('BKAI best mdice {}'.format(max(bkai)))
 
-    # BKAI: 0.902
-    # CVC-300: 0.932
-    # CVC-ClinicDB: 0.947
-    # CVC-ColonDB: 0.935
-    # ETIS: 0.935
-    # Kvasir: 0.959
-
 
 def retest_failed_cases():
     parser = argparse.ArgumentParser()
@@ -896,10 +898,23 @@ def test_dye_str():
     img.show()
 
 
+def test_ce():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--use_aug', type=bool, default=True)
+    parser.add_argument('--train_size', type=int, default=352)
+    parser.add_argument('--train_path', type=str, default='dataset/trainset/')
+    parser.add_argument('--eval_path', type=str, default='../dataset/testset/')
+    args = parser.parse_args()
+    train_set = TrainSet(args)
+    image, mask = train_set.__getitem__(100)
+    img = image.permute(1, 2, 0).data.cpu().numpy()
+    cv2.imshow('after dye strategy', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()  # => after dye strategy the sample is dimmer
+
+
 if __name__ == '__main__':
     # progress_bar()
-
-    experiment_of_dye()
 
     # process_bkai_dataset()
 
@@ -913,9 +928,11 @@ if __name__ == '__main__':
     #             'all': [3248, 1434, 849, 658, 307]}
     # draw_graph(sum_dict)
 
-    # calc_model_complexity()  # ChocolateNet's flops = 10.48 GMac and its params = 25.12 M(2024/04/15 20:41)
+    # ChocolateNet's flops = 10.48 GMac and its params = 25.12 M(2024/04/15 20:41)
+    # ChocolateNet's flops = 9.9 GMac and its params = 24.98 M(2025/01/25 17:31)
+    # calc_model_complexity()
 
-    # calc_fps(10)
+    calc_fps()
 
     # test_boundary_attention()
 
@@ -936,3 +953,7 @@ if __name__ == '__main__':
     # test_new_transforms()
 
     # test_dye_str()
+
+    # experiment_of_dye()
+
+    # test_ce()

@@ -1,3 +1,5 @@
+import time
+
 import torch
 import torch.nn as nn
 
@@ -35,9 +37,11 @@ class ChocolateNet(nn.Module):
         x2 = pvt[1]  # (bs, 128, 44, 44)
         x3 = pvt[2]  # (bs, 320, 22, 22)
         x4 = pvt[3]  # (bs, 512, 11, 11)
+
         ba_res = self.ba(x2, x3, x4)  # (bs, 32, 44, 44)
         sa_res = self.sa(x1)  # (bs, 32, 44, 44)
         fa_res = self.fa(ba_res, sa_res)  # (bs, 32, 44, 44)
+
         ba_res = self.out_ba(ba_res)  # (bs, 1, 44, 44)
         fa_res = self.out_fa(fa_res)  # (bs, 1, 44, 44)
         pred1 = self.up(ba_res)

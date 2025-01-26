@@ -55,11 +55,11 @@ class FeatureAggregation(nn.Module):
 
     def forward(self, x, edge):
         b, c, h, w = x.size()
-        edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
 
         # Construct projection matrix
         x_state_reshaped = self.conv_state(x).view(b, self.num_s, -1)
         x_proj = self.conv_proj(x)
+        edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
         x_mask = x_proj * edge
         x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
         x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
@@ -72,6 +72,6 @@ class FeatureAggregation(nn.Module):
 
         # Reproject
         x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
-        x_state = x_state_reshaped.view(b, self.num_s, *x.size()[2:])
+        x_state = x_state_reshaped.view(b, self.num_s, h, w)
         out = x + self.conv_extend(x_state)
         return out
