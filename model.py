@@ -50,7 +50,11 @@ class ChocolateNet(nn.Module):
 if __name__ == '__main__':
     model = ChocolateNet().cuda()
     x = torch.randn(1, 3, 352, 352).cuda()
+    import time
+    s = time.time()
     pred = model(x)
+    e = time.time()
+    print(e - s)
     print(pred.shape)
 
     # Polyp-PVT's performance

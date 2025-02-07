@@ -43,8 +43,6 @@ class TrainSet(Dataset):
                 self.color2.append(name)
         self.len1, self.len2 = len(self.color1), len(self.color2)
 
-        random.seed(2025)
-
     def __getitem__(self, index):  # ref SANet's Color Exchange Strategy
         name = self.images[index]
         image = cv2.imread(self.image_path + '/' + name)
