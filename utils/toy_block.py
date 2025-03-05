@@ -41,7 +41,7 @@ class GCN(nn.Module):
 
 class FeatureAggregation(nn.Module):
 
-    def __init__(self, num_in=32, num_s=16, mids=4):  # plan 1
+    def __init__(self, num_in=32, num_s=16, mids=4):
         super(FeatureAggregation, self).__init__()
         self.num_s = num_s
         self.num_n = mids ** 2
@@ -53,14 +53,15 @@ class FeatureAggregation(nn.Module):
 
         self.gcn = GCN(num_state=self.num_s, num_node=self.num_n)
 
-    def forward(self, x, edge):
-        b, c, h, w = x.size()
-        edge = F.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
+    def forward(self, x1, x2):
+        b, c, h, w = x1.size()
+        t1 = x1
 
         # Construct projection matrix
-        x_state_reshaped = self.conv_state(x).view(b, self.num_s, -1)
-        x_proj = self.conv_proj(x)
-        x_mask = x_proj * edge
+        x_state_reshaped = self.conv_state(x1).view(b, self.num_s, -1)
+        x_proj = self.conv_proj(x1)
+        x2 = F.softmax(x2, dim=1)[:, 1, :, :].unsqueeze(1)
+        x_mask = x_proj * x2
         x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
         x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
         x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
@@ -72,29 +73,6 @@ class FeatureAggregation(nn.Module):
 
         # Reproject
         x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
-        x_state = x_state_reshaped.view(b, self.num_s, *x.size()[2:])
-        out = x + self.conv_extend(x_state)
+        x_state = x_state_reshaped.view(b, self.num_s, h, w)
+        out = t1 + self.conv_extend(x_state)
         return out
-
-    # def forward(self, x1, x2):
-    #     b, c, h, w = x1.size()
-    #     t1 = x1
-    #     # Construct projection matrix
-    #     x_state_reshaped = self.conv_state(x1).view(b, self.num_s, -1)
-    #     x_proj = self.conv_proj(x1)
-    #     x2 = F.softmax(x2, dim=1)[:, 1, :, :].unsqueeze(1)
-    #     x_mask = x_proj * x2
-    #     x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
-    #     x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
-    #     x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
-    #     x_rproj_reshaped = x_proj_reshaped
-    #
-    #     # Project and graph reason
-    #     x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
-    #     x_b_rel = self.gcn(x_b_state)
-    #
-    #     # Reproject
-    #     x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
-    #     x_state = x_state_reshaped.view(b, self.num_s, h, w)
-    #     out = t1 + self.conv_extend(x_state)
-    #     return out

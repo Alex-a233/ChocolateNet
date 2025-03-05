@@ -31,7 +31,6 @@ def train(model, trainset_loader, args):
     global best_mdice
     global early_stopping_cnt
     size_rates = [0.75, 1, 1.25]
-    # size_rates = [0.5, 1, 1.5]  # 尝试以不同缩放比率（1/2）调整图像，性能尚可
 
     for epoch in range(1, args.epoch + 1):
         for step, pairs in enumerate(trainset_loader, start=1):
@@ -116,7 +115,7 @@ def train(model, trainset_loader, args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='here is the training arguments')
-    parser.add_argument('--epoch', type=int, default=100, help='training epochs')
+    parser.add_argument('--epoch', type=int, default=90, help='training epochs')
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')

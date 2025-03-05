@@ -51,15 +51,9 @@ if __name__ == '__main__':
     model = ChocolateNet().cuda()
     x = torch.randn(1, 3, 352, 352).cuda()
     import time
+
     s = time.time()
     pred = model(x)
     e = time.time()
     print(e - s)
     print(pred.shape)
-
-    # Polyp-PVT's performance
-    # CVC-300                       mdice: 0.880  miou: 0.802
-    # CVC-ClinicDB             mdice: 0.937   miou: 0.889
-    # CVC-ColonDB             mdice: 0.808  miou: 0.727
-    # ETIS-LaribPolypDB mdice: 0.787   miou: 0.706
-    # Kvasir                            mdice: 0.917    miou: 0.864
