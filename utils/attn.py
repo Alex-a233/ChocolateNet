@@ -9,7 +9,6 @@ class BoundaryAttention(nn.Module):
 
     def __init__(self):
         super(BoundaryAttention, self).__init__()
-
         self.conv2 = MyConv(128, 32, 1, use_bias=True)
         self.conv3 = MyConv(320, 32, 1, use_bias=True)
         self.conv4 = MyConv(512, 32, 1, use_bias=True)
@@ -26,6 +25,7 @@ class BoundaryAttention(nn.Module):
         self.conv5 = MyConv(96, 32, 3, padding=1, use_bias=True)
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        # init(self)
 
     def forward(self, x2, x3, x4):
         x2 = self.conv2(x2)
@@ -45,7 +45,6 @@ class BoundaryAttention(nn.Module):
         res = torch.cat((self.up(o4_3), o4_2, o3_2), dim=1)
         res = self.conv5(res)
         res = res * x4_3_2 + x2 + self.up(x3) + self.up(self.up(x4))
-
         return res
 
 
@@ -82,13 +81,14 @@ class SpatialAttention(nn.Module):
         return torch.sigmoid(res)
 
 
-class StructureAttention(nn.Module):  # CBAM...凸(艹皿艹 )
+class StructureAttention(nn.Module):
 
     def __init__(self):
         super(StructureAttention, self).__init__()
         self.ca = ChannelAttention(64)
         self.sa = SpatialAttention()
         self.conv = MyConv(64, 32, 1, use_bias=True)
+        # init(self)
 
     def forward(self, x):
         x = self.ca(x) * x
@@ -96,6 +96,15 @@ class StructureAttention(nn.Module):  # CBAM...凸(艹皿艹 )
         res = self.conv(x)
         res = F.interpolate(res, scale_factor=0.5, mode='bilinear', align_corners=True)
         return res
+
+
+def init(module):
+    for n, m in module.named_children():
+        if isinstance(m, MyConv):
+            nn.init.kaiming_normal_(m.conv.weight, mode='fan_in', nonlinearity='relu')
+            nn.init.zeros_(m.conv.bias)
+            nn.init.ones_(m.bn.weight)
+            nn.init.zeros_(m.bn.bias)
 
 
 if __name__ == '__main__':

@@ -31,13 +31,11 @@ def train(model, trainset_loader, args):
     global best_mdice
     global early_stopping_cnt
     size_rates = [0.75, 1, 1.25]
-    # size_rates = [0.5, 1, 1.5]  # 尝试以不同缩放比率（1/2）调整图像，性能尚可
 
     for epoch in range(1, args.epoch + 1):
         for step, pairs in enumerate(trainset_loader, start=1):
             for size_rate in size_rates:
                 images, masks = pairs
-
                 images = images.cuda().float()
                 masks = masks.cuda().float()
 
@@ -51,8 +49,8 @@ def train(model, trainset_loader, args):
                 optimizer.zero_grad()
                 # use amp.autocast
                 with autocast():
-                    preds = model(images)
-                    bce_loss, dice_loss = wbce_wdice(preds, masks)
+                    pred = model(images)
+                    bce_loss, dice_loss = wbce_wdice(pred, masks)
                     # calculate total loss
                     loss = (bce_loss + dice_loss).mean()
 
@@ -63,7 +61,8 @@ def train(model, trainset_loader, args):
                     print_save(f'it is time about {datetime.now()} exception occur =>\n{ex}', args.log_path,
                                args.log_name)
 
-                clip_gradient(optimizer, args.clip)  # remove this will decrease the performance
+                # remove this will decrease the performance
+                clip_gradient(optimizer, args.clip)
                 scaler.step(optimizer)
                 scaler.update()
 
@@ -85,7 +84,7 @@ def train(model, trainset_loader, args):
         # save the best model weights args if cur mdice better than ever before
         if mean_dice > best_mdice:
             # visualized the pred
-            pred_images = tvu.make_grid(preds, normalize=False, scale_each=True)
+            pred_images = tvu.make_grid(pred, normalize=False, scale_each=True)
             logger.add_image('{}/preds/'.format(epoch), pred_images, epoch)
             best_mdice = mean_dice
             # create save path
@@ -116,11 +115,11 @@ def train(model, trainset_loader, args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='here is the training arguments')
-    parser.add_argument('--epoch', type=int, default=100, help='training epochs')
+    parser.add_argument('--epoch', type=int, default=90, help='training epochs')
     parser.add_argument('--batch_size', type=int, default=16, help='training batch size')
     parser.add_argument('--lr', type=float, default=2e-4, help='learning rate')
     parser.add_argument('--clip', type=float, default=0.5, help='gradient clipping margin')
-    parser.add_argument('--weight_decay', type=float, default=3e-2, help='weight decay')
+    parser.add_argument('--weight_decay', type=float, default=5e-2, help='weight decay')
     parser.add_argument('--early_stopping_patience', type=int, default=30, help='patience for epoch number')
     parser.add_argument('--use_aug', type=bool, default=True, help='use data augmentation or not')
     parser.add_argument('--train_size', type=int, default=352, help='training image size')

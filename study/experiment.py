@@ -61,16 +61,21 @@ def experiment_of_dye():
         'COLORMAP_CIVIDIS': 17,
         'COLORMAP_DEEPGREEN': 21
     }
-    base_path = 'D://Study/pyspace/PraNet/data/TrainDataset/images/'
+    base_path = 'D://Study/pyspace/PraNet/data/TestDataset/ETIS-LaribPolypDB/images/'
     img_paths = [base_path + img for img in os.listdir(base_path) if img.endswith('.png')]
+    l = 0
     for img_path in img_paths:
         cpr_colormap(img_path, chosen_color_maps)
+        l += 1
+        if l == 10:
+            break
 
 
 def cpr_colormap(img_path, color_dict):
     h1 = []
     h2 = []
     origin_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    origin_img = cv2.resize(origin_img, (352, 352), interpolation=cv2.INTER_NEAREST)
     h1.append(origin_img)
     h2.append(origin_img)
     # cv2.imshow('origin_image', origin_img)
@@ -846,16 +851,19 @@ def test_new_transforms():
         # transforms.Resize((352, 352)),
         # TODO: 补充其他可用的增强方法，比如亮度，对比度，染色
         # transforms.ColorJitter(brightness=(1, 1.5), contrast=0, saturation=0, hue=(-0.1, 0.1)),
-        # transforms.ColorJitter(brightness=0, contrast=0, saturation=0, hue=(-0.5, 0.5)),
+        transforms.ColorJitter(brightness=(0.6, 1.6), contrast=0.2, saturation=0.1, hue=0.01),
         # reference from ColonFormer
         # # 高斯模糊，标准差0.001-2.0
         # transforms.GaussianBlur((25, 25), sigma=(0.001, 2.0)),
         # # 图像的亮度调整为0.4，对比度调整为0.5，饱和度调整为0.25，色度调整为0.01
         # transforms.ColorJitter(brightness=0.4, contrast=0.5, saturation=0.25, hue=0.01),
         transforms.ToTensor(),
-        # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        # transforms.Normalize([0.497, 0.301, 0.216], [0.298, 0.208, 0.161])  # trainset 的通道级标准化系数
+        # transforms.Normalize([0.496, 0.311, 0.226], [0.293, 0.210, 0.163])  # 所有 images 的通道级标准化系数
+        # transforms.Normalize([0.496, 0.336, 0.251], [0.276, 0.215, 0.165])  # ColonDB&ETIS 的通道级标准化系数
+        # transforms.Normalize([0.602, 0.431, 0.372], [0.236, 0.211, 0.195])  # ETIS 的通道级标准化系数
     ])
-    dataset = SegmentationDataset(transform=transform)
+    dataset = SegmentationDataset()
     for i in range(10):
         image = dataset.get_image(i)
         # img0 = np.array(image)
@@ -868,10 +876,195 @@ def test_new_transforms():
         cv2.destroyAllWindows()
 
 
+def test_dye_str():
+    # img = Image.open('D:/Study/pyspace/ChocolateNet/useful_articles/juice.png')
+    img = Image.open('D:/Study/pyspace/ChocolateNet/dataset/testset/ETIS-LaribPolypDB/images/1.png')
+    img.show()
+
+    img = img.convert('RGB')
+    data = img.getdata()
+    new_data = []
+    for c in data:
+        if c[0] > c[1] and c[0] > c[2]:  # (r = 1, g = 1, b = 0) => yellow
+            # new_data.append((36, 59, 142))  # 靛胭脂
+            # new_data.append((c[0], c[1], c[2] + 100))  # blue++
+            # new_data.append((c[0], c[1] + 100, c[2]))  # green++
+            new_data.append((c[0] + 100, c[1], c[2]))  # red++
+        else:
+            new_data.append(c)
+    img.putdata(new_data)
+    img.show()
+
+
+# black & white change each other
+# img = Image.open(save_path + '/' + img_path)
+# img = img.convert('L')
+# inverted_image = ImageOps.invert(img)
+# # 保存处理后的图像
+# inverted_image.save(save_path + '/' + img_path)
+
+
+def calc_model_perf():
+    d0118 = '(Dataset:BKAI-IGH-NEOPOLYP; Model:ChocolateNet) mDice:0.850;mIoU:0.778;wFm:0.841;Sm:0.903;meanEm:0.934;MAE:0.017;maxEm:0.938;maxDice:0.859;maxIoU:0.793;meanSen:0.855;maxSen:1.000;meanSpe:0.976;maxSpe:0.981. ' \
+            '(Dataset:CVC-300; Model:ChocolateNet) mDice:0.884;mIoU:0.815;wFm:0.865;Sm:0.928;meanEm:0.955;MAE:0.007;maxEm:0.959;maxDice:0.889;maxIoU:0.821;meanSen:0.950;maxSen:1.000;meanSpe:0.991;maxSpe:0.995. ' \
+            '(Dataset:CVC-ClinicDB; Model:ChocolateNet) mDice:0.926;mIoU:0.879;wFm:0.924;Sm:0.949;meanEm:0.974;MAE:0.007;maxEm:0.978;maxDice:0.930;maxIoU:0.884;meanSen:0.955;maxSen:1.000;meanSpe:0.991;maxSpe:0.996. ' \
+            '(Dataset:CVC-ColonDB; Model:ChocolateNet) mDice:0.822;mIoU:0.744;wFm:0.811;Sm:0.876;meanEm:0.915;MAE:0.031;maxEm:0.923;maxDice:0.829;maxIoU:0.748;meanSen:0.840;maxSen:1.000;meanSpe:0.970;maxSpe:0.976. ' \
+            '(Dataset:ETIS-LaribPolypDB; Model:ChocolateNet) mDice:0.797;mIoU:0.717;wFm:0.753;Sm:0.879;meanEm:0.903;MAE:0.015;maxEm:0.910;maxDice:0.805;maxIoU:0.727;meanSen:0.911;maxSen:1.000;meanSpe:0.944;maxSpe:0.949. ' \
+            '(Dataset:Kvasir; Model:ChocolateNet) mDice:0.918;mIoU:0.869;wFm:0.911;Sm:0.926;meanEm:0.964;MAE:0.022;maxEm:0.967;maxDice:0.921;maxIoU:0.873;meanSen:0.922;maxSen:1.000;meanSpe:0.983;maxSpe:0.991.'
+    d0206 = '(Dataset:BKAI-IGH-NEOPOLYP; Model:ChocolateNet) mDice:0.847;mIoU:0.774;wFm:0.839;Sm:0.902;meanEm:0.931;MAE:0.017;maxEm:0.934;maxDice:0.858;maxIoU:0.792;meanSen:0.850;maxSen:1.000;meanSpe:0.980;maxSpe:0.984. ' \
+            '(Dataset:CVC-300; Model:ChocolateNet) mDice:0.896;mIoU:0.829;wFm:0.874;Sm:0.935;meanEm:0.964;MAE:0.007;maxEm:0.969;maxDice:0.902;maxIoU:0.837;meanSen:0.959;maxSen:1.000;meanSpe:0.990;maxSpe:0.994. ' \
+            '(Dataset:CVC-ClinicDB; Model:ChocolateNet) mDice:0.926;mIoU:0.883;wFm:0.926;Sm:0.949;meanEm:0.971;MAE:0.007;maxEm:0.974;maxDice:0.930;maxIoU:0.888;meanSen:0.957;maxSen:1.000;meanSpe:0.991;maxSpe:0.996. ' \
+            '(Dataset:CVC-ColonDB; Model:ChocolateNet) mDice:0.814;mIoU:0.736;wFm:0.799;Sm:0.870;meanEm:0.908;MAE:0.033;maxEm:0.911;maxDice:0.817;maxIoU:0.740;meanSen:0.843;maxSen:1.000;meanSpe:0.964;maxSpe:0.970. ' \
+            '(Dataset:ETIS-LaribPolypDB; Model:ChocolateNet) mDice:0.805;mIoU:0.732;wFm:0.782;Sm:0.883;meanEm:0.905;MAE:0.014;maxEm:0.914;maxDice:0.810;maxIoU:0.737;meanSen:0.851;maxSen:1.000;meanSpe:0.948;maxSpe:0.964. ' \
+            '(Dataset:Kvasir; Model:ChocolateNet) mDice:0.926;mIoU:0.879;wFm:0.921;Sm:0.930;meanEm:0.962;MAE:0.023;maxEm:0.965;maxDice:0.930;maxIoU:0.883;meanSen:0.926;maxSen:1.000;meanSpe:0.986;maxSpe:0.994.'
+    d0207 = '(Dataset:BKAI-IGH-NEOPOLYP; Model:ChocolateNet) mDice:0.853;mIoU:0.779;wFm:0.846;Sm:0.907;meanEm:0.938;MAE:0.015;maxEm:0.943;maxDice:0.866;maxIoU:0.800;meanSen:0.846;maxSen:1.000;meanSpe:0.981;maxSpe:0.986. ' \
+            '(Dataset:CVC-300; Model:ChocolateNet) mDice:0.909;mIoU:0.847;wFm:0.894;Sm:0.943;meanEm:0.975;MAE:0.005;maxEm:0.981;maxDice:0.916;maxIoU:0.855;meanSen:0.956;maxSen:1.000;meanSpe:0.992;maxSpe:0.996. ' \
+            '(Dataset:CVC-ClinicDB; Model:ChocolateNet) mDice:0.946;mIoU:0.902;wFm:0.946;Sm:0.956;meanEm:0.989;MAE:0.006;maxEm:0.993;maxDice:0.951;maxIoU:0.908;meanSen:0.957;maxSen:1.000;meanSpe:0.992;maxSpe:0.998. ' \
+            '(Dataset:CVC-ColonDB; Model:ChocolateNet) mDice:0.822;mIoU:0.745;wFm:0.809;Sm:0.873;meanEm:0.914;MAE:0.032;maxEm:0.917;maxDice:0.826;maxIoU:0.749;meanSen:0.844;maxSen:1.000;meanSpe:0.970;maxSpe:0.977. ' \
+            '(Dataset:ETIS-LaribPolypDB; Model:ChocolateNet) mDice:0.794;mIoU:0.716;wFm:0.756;Sm:0.885;meanEm:0.908;MAE:0.015;maxEm:0.913;maxDice:0.800;maxIoU:0.724;meanSen:0.897;maxSen:1.000;meanSpe:0.967;maxSpe:0.973. ' \
+            '(Dataset:Kvasir; Model:ChocolateNet) mDice:0.914;mIoU:0.867;wFm:0.912;Sm:0.923;meanEm:0.959;MAE:0.024;maxEm:0.964;maxDice:0.918;maxIoU:0.871;meanSen:0.904;maxSen:1.000;meanSpe:0.977;maxSpe:0.985.'
+    d0208 = '(Dataset:BKAI-IGH-NEOPOLYP; Model:ChocolateNet) mDice:0.850;mIoU:0.776;wFm:0.843;Sm:0.904;meanEm:0.935;MAE:0.016;maxEm:0.942;maxDice:0.863;maxIoU:0.797;meanSen:0.845;maxSen:1.000;meanSpe:0.978;maxSpe:0.984. ' \
+            '(Dataset:CVC-300; Model:ChocolateNet) mDice:0.891;mIoU:0.824;wFm:0.872;Sm:0.930;meanEm:0.963;MAE:0.008;maxEm:0.969;maxDice:0.898;maxIoU:0.833;meanSen:0.946;maxSen:1.000;meanSpe:0.991;maxSpe:0.996. ' \
+            '(Dataset:CVC-ClinicDB; Model:ChocolateNet) mDice:0.943;mIoU:0.897;wFm:0.950;Sm:0.954;meanEm:0.988;MAE:0.006;maxEm:0.992;maxDice:0.949;maxIoU:0.906;meanSen:0.931;maxSen:1.000;meanSpe:0.993;maxSpe:0.998. ' \
+            '(Dataset:CVC-ColonDB; Model:ChocolateNet) mDice:0.799;mIoU:0.719;wFm:0.786;Sm:0.861;meanEm:0.906;MAE:0.035;maxEm:0.909;maxDice:0.803;maxIoU:0.723;meanSen:0.810;maxSen:1.000;meanSpe:0.957;maxSpe:0.964. ' \
+            '(Dataset:ETIS-LaribPolypDB; Model:ChocolateNet) mDice:0.804;mIoU:0.723;wFm:0.766;Sm:0.886;meanEm:0.914;MAE:0.014;maxEm:0.921;maxDice:0.812;maxIoU:0.733;meanSen:0.895;maxSen:1.000;meanSpe:0.961;maxSpe:0.975. ' \
+            '(Dataset:Kvasir; Model:ChocolateNet) mDice:0.927;mIoU:0.877;wFm:0.921;Sm:0.933;meanEm:0.965;MAE:0.020;maxEm:0.969;maxDice:0.930;maxIoU:0.881;meanSen:0.926;maxSen:1.000;meanSpe:0.986;maxSpe:0.994.'
+    d0209 = '(Dataset:BKAI-IGH-NEOPOLYP; Model:ChocolateNet) mDice:0.852;mIoU:0.776;wFm:0.848;Sm:0.905;meanEm:0.939;MAE:0.014;maxEm:0.947;maxDice:0.869;maxIoU:0.803;meanSen:0.831;maxSen:1.000;meanSpe:0.981;maxSpe:0.987. ' \
+            '(Dataset:CVC-300; Model:ChocolateNet) mDice:0.898;mIoU:0.832;wFm:0.882;Sm:0.937;meanEm:0.967;MAE:0.007;maxEm:0.972;maxDice:0.904;maxIoU:0.839;meanSen:0.943;maxSen:1.000;meanSpe:0.991;maxSpe:0.996. ' \
+            '(Dataset:CVC-ClinicDB; Model:ChocolateNet) mDice:0.938;mIoU:0.893;wFm:0.936;Sm:0.953;meanEm:0.985;MAE:0.006;maxEm:0.989;maxDice:0.943;maxIoU:0.899;meanSen:0.952;maxSen:1.000;meanSpe:0.992;maxSpe:0.997. ' \
+            '(Dataset:CVC-ColonDB; Model:ChocolateNet) mDice:0.794;mIoU:0.716;wFm:0.782;Sm:0.858;meanEm:0.898;MAE:0.033;maxEm:0.905;maxDice:0.802;maxIoU:0.721;meanSen:0.810;maxSen:1.000;meanSpe:0.965;maxSpe:0.971. ' \
+            '(Dataset:ETIS-LaribPolypDB; Model:ChocolateNet) mDice:0.803;mIoU:0.728;wFm:0.769;Sm:0.882;meanEm:0.917;MAE:0.015;maxEm:0.924;maxDice:0.810;maxIoU:0.737;meanSen:0.886;maxSen:1.000;meanSpe:0.952;maxSpe:0.972. ' \
+            '(Dataset:Kvasir; Model:ChocolateNet) mDice:0.926;mIoU:0.877;wFm:0.923;Sm:0.931;meanEm:0.964;MAE:0.020;maxEm:0.970;maxDice:0.931;maxIoU:0.883;meanSen:0.918;maxSen:1.000;meanSpe:0.988;maxSpe:0.996.'
+    datas = [d0118, d0206, d0207, d0208, d0209]
+    records = {'BKAI-IGH-NEOPOLYP': {'mDice': 0.0, 'mIoU': 0.0, 'wFm': 0.0, 'Sm': 0.0, 'meanEm': 0.0, 'maxEm': 0.0,
+                                     'MAE': 0.0},
+               'CVC-300': {'mDice': 0.0, 'mIoU': 0.0, 'wFm': 0.0, 'Sm': 0.0, 'meanEm': 0.0, 'maxEm': 0.0, 'MAE': 0.0},
+               'CVC-ClinicDB': {'mDice': 0.0, 'mIoU': 0.0, 'wFm': 0.0, 'Sm': 0.0, 'meanEm': 0.0, 'maxEm': 0.0,
+                                'MAE': 0.0},
+               'CVC-ColonDB': {'mDice': 0.0, 'mIoU': 0.0, 'wFm': 0.0, 'Sm': 0.0, 'meanEm': 0.0, 'maxEm': 0.0,
+                               'MAE': 0.0},
+               'ETIS-LaribPolypDB': {'mDice': 0.0, 'mIoU': 0.0, 'wFm': 0.0, 'Sm': 0.0, 'meanEm': 0.0, 'maxEm': 0.0,
+                                     'MAE': 0.0},
+               'Kvasir': {'mDice': 0.0, 'mIoU': 0.0, 'wFm': 0.0, 'Sm': 0.0, 'meanEm': 0.0, 'maxEm': 0.0, 'MAE': 0.0}}
+
+    for data in datas:
+        ds_list = data.split('. ')
+        for ds in ds_list:
+            ds_name = ds[ds.index('Dataset:') + 8: ds.index(';')]
+            records[ds_name]['mDice'] += float(ds[ds.find('mDice:') + 6: ds.find('mDice:') + 11])
+            records[ds_name]['mIoU'] += float(ds[ds.find('mIoU:') + 5: ds.find('mIoU:') + 10])
+            records[ds_name]['wFm'] += float(ds[ds.find('wFm:') + 4: ds.find('wFm:') + 9])
+            records[ds_name]['Sm'] += float(ds[ds.find('Sm:') + 3: ds.find('Sm:') + 8])
+            records[ds_name]['meanEm'] += float(ds[ds.find('meanEm:') + 7: ds.find('meanEm:') + 12])
+            records[ds_name]['maxEm'] += float(ds[ds.find('maxEm:') + 6: ds.find('maxEm:') + 11])
+            records[ds_name]['MAE'] += float(ds[ds.find('MAE:') + 4: ds.find('MAE:') + 9])
+
+    for dn in records.keys():
+        for ind in records[dn].keys():
+            records[dn][ind] /= 5.0
+
+    for k, v in records.items():
+        print(k, v)
+
+
+def arr_imgs():
+    # 假设这些是你的图像路径列表
+    image_paths = [
+        'D:/Study/pyspace/SANet/data/test/CVC-ClinicDB/image/266.png',
+        'D:/Study/pyspace/SANet/data/test/CVC-ClinicDB/image/561.png',
+        'D:/Study/pyspace/SANet/data/test/Kvasir/image/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/pyspace/SANet/data/test/Kvasir/image/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/pyspace/SANet/data/test/CVC-ClinicDB/mask/266.png',
+        'D:/Study/pyspace/SANet/data/test/CVC-ClinicDB/mask/561.png',
+        'D:/Study/pyspace/SANet/data/test/Kvasir/mask/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/pyspace/SANet/data/test/Kvasir/mask/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/unet_results/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/unet_results/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/unet_results/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/unet_results/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/unetplusplus_results/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/unetplusplus_results/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/unetplusplus_results/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/unetplusplus_results/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/pranet_results/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/pranet_results/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/pranet_results/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/pranet_results/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/SFA/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/SFA/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/SFA/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/SFA/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/sanet_results/result_map/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/sanet_results/result_map/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/sanet_results/result_map/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/sanet_results/result_map/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/hardnet-mseg/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/hardnet-mseg/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/hardnet-mseg/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/hardnet-mseg/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/Caranet/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/Caranet/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/Caranet/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/caranet_results/map/Caranet/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/msnet_results/result_map/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/msnet_results/result_map/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/msnet_results/result_map/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/msnet_results/result_map/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2025spring/polyp_pvt_results/result_map/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2025spring/polyp_pvt_results/result_map/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2025spring/polyp_pvt_results/result_map/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2025spring/polyp_pvt_results/result_map/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+        'D:/Study/PostgraduateStudy/2024autumn/chocolatenet_preds/20250207/CVC-ClinicDB/266.png',
+        'D:/Study/PostgraduateStudy/2024autumn/chocolatenet_preds/20250207/CVC-ClinicDB/561.png',
+        'D:/Study/PostgraduateStudy/2024autumn/chocolatenet_preds/20250208/Kvasir/cju3uhb79gcgr0871orbrbi3x.png',
+        'D:/Study/PostgraduateStudy/2024autumn/chocolatenet_preds/20250208/Kvasir/cju6vifjlv55z0987un6y4zdo.png',
+    ]
+    # 读取图像顺带调整图像大小
+    std_size = (100, 100)
+    images = []
+    for i in range(len(image_paths)):
+        image = Image.open(image_paths[i])
+        if i < 4:
+            image.convert('RGB')
+        else:
+            image.convert('L')
+        image = image.resize(std_size, Image.LANCZOS)
+        images.append(image)
+    # 设置表格的行数和列数
+    num_rows = 12
+    num_cols = 5  # 左一列文字，右四列图片
+    # 创建一个新的图形和轴
+    fig, axs = plt.subplots(num_rows, num_cols, figsize=(10, 2 * num_rows))
+    # 隐藏所有轴的刻度和标签
+    for ax in axs.flat:
+        ax.axis('off')
+    # 填充左列文字
+    left_column_text = ["Images", "Masks", "U-Net", "U-Net++", "PraNet", "ACSNet",
+                        "SANet", "HardDNet-MSEG", "CaraNet", "MSNet", "Polyp-PVT", "ChocolateNet"]
+    for i in range(num_rows):
+        if i == num_rows - 1:
+            axs[i, 0].text(0.5, 0.5, left_column_text[i], ha='center', va='center', fontsize=16, fontfamily='Georgia', weight='bold')
+        else:
+            axs[i, 0].text(0.5, 0.5, left_column_text[i], ha='center', va='center', fontsize=16, fontfamily='Georgia')
+    # 填充右侧四列图像
+    idx = 0
+    for i in range(num_rows):  # 0-11
+        for j in range(1, num_cols):  # 0-5
+            if len(images[idx].mode) == 1:  # greyscale
+                axs[i, j].imshow(images[idx], cmap='gray')
+            else:
+                axs[i, j].imshow(images[idx])
+            idx += 1
+    # 调整子图之间的间距
+    plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01, wspace=0.1, hspace=0.1)
+    # 显示图形
+    plt.show()
+
+
 if __name__ == '__main__':
     # progress_bar()
 
-    experiment_of_dye()
+    # experiment_of_dye()
 
     # process_bkai_dataset()
 
@@ -885,7 +1078,16 @@ if __name__ == '__main__':
     #             'all': [3248, 1434, 849, 658, 307]}
     # draw_graph(sum_dict)
 
-    # calc_model_complexity()  # ChocolateNet's flops = 10.48 GMac and its params = 25.12 M(2024/04/15 20:41)
+    calc_model_complexity()
+    # ChocolateNet's flops = 9.9 GMac and its params = 24.98 M
+    #  PolypPVt's flops = 10.1 GMac and its params = 25.11 M
+    # PraNet's flops = 13.15 GMac and its params = 32.55 M
+    # SANet's flops = 11.32 GMac and its params = 23.9 M
+    # CaraNet's flops = 21.76 GMac and its params = 46.64 M
+    # HarDNet-MSEG's flops = 11.39 GMac and its params = 18.45 M
+    # ACSNet's flops = 39.44 GMac and its params = 29.45 M
+    # MSNet's flops = 17.02 GMac and its params = 29.74 M
+
 
     # calc_fps(10)
 
@@ -906,3 +1108,15 @@ if __name__ == '__main__':
     # show_boundary()
 
     # test_new_transforms()
+
+    # test_dye_str()
+
+    # calc_model_perf()
+    # BKAI-IGH-NEOPOLYP {'mDice': 0.8503999999999999, 'mIoU': 0.7766, 'wFm': 0.8433999999999999, 'Sm': 0.9042, 'meanEm': 0.9353999999999999, 'maxEm': 0.9408, 'MAE': 0.0158}
+    # CVC-300 {'mDice': 0.8956, 'mIoU': 0.8293999999999999, 'wFm': 0.8774, 'Sm': 0.9346, 'meanEm': 0.9648, 'maxEm': 0.97, 'MAE': 0.0068000000000000005}
+    # CVC-ClinicDB {'mDice': 0.9358000000000001, 'mIoU': 0.8907999999999999, 'wFm': 0.9364000000000001, 'Sm': 0.9522, 'meanEm': 0.9814, 'maxEm': 0.9852000000000001, 'MAE': 0.0064}
+    # CVC-ColonDB {'mDice': 0.8102, 'mIoU': 0.732, 'wFm': 0.7974, 'Sm': 0.8675999999999998, 'meanEm': 0.9082000000000001, 'maxEm': 0.913, 'MAE': 0.0328}
+    # ETIS-LaribPolypDB {'mDice': 0.8006, 'mIoU': 0.7232, 'wFm': 0.7652000000000001, 'Sm': 0.883, 'meanEm': 0.9094000000000001, 'maxEm': 0.9164000000000001, 'MAE': 0.014599999999999998}
+    # Kvasir {'mDice': 0.9221999999999999, 'mIoU': 0.8737999999999999, 'wFm': 0.9176, 'Sm': 0.9286, 'meanEm': 0.9628, 'maxEm': 0.967, 'MAE': 0.021800000000000003}
+
+    # arr_imgs()
