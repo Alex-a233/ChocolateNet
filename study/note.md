@@ -954,3 +954,35 @@ model = GAT(in_features, hidden_features, out_features, dropout=0.6, alpha=0.2, 
 output = model(x, adj)  
 print(output.shape)  # 输出: torch.Size([100, 10])
 ```
+
+
+#### UserWarning: A new version of Albumentations is available: 2.0.2 (you have 1.4.18). Upgrade using: pip install -U albumentations. To disable automatic update checks, set the environment variable NO_ALBUMENTATIONS_UPDATE to 1.
+  check_for_updates()这种警告应该怎么处理？
+
+#### 这个警告是提醒你 Albumentations 库有新版本可用。你可以选择更新到最新版本，或者禁用更新检查。以下是处理这个警告的两种方法：
+
+### 方法1：更新 Albumentations
+你可以通过以下命令更新 Albumentations 到最新版本：
+
+```bash
+pip install -U albumentations
+```
+
+### 方法2：禁用自动更新检查
+如果你不想更新，可以通过设置环境变量来禁用自动检查更新。在你的终端或命令行中执行以下命令：
+
+在 Linux 或 macOS 上：
+
+```bash
+export NO_ALBUMENTATIONS_UPDATE=1
+```
+
+在 Windows 上：
+
+```cmd
+set NO_ALBUMENTATIONS_UPDATE=1
+```
+
+通过这种方式，以后就不会再看到这个警告。
+
+#### 你想选择哪种方法呢？或者需要更多关于这个库的信息吗？
