@@ -34,23 +34,25 @@ def train(model, trainset_loader, args):
 
     for epoch in range(1, args.epoch + 1):
         for step, pairs in enumerate(trainset_loader, start=1):
-            for size_rate in size_rates:
-                images, masks = pairs
-                images = images.cuda().float()
-                masks = masks.cuda().float()
+            images, masks = pairs
+            images = images.cuda().float()
+            masks = masks.cuda().float()
 
+            for size_rate in size_rates:
+                imgs = images
+                msks = masks
                 if size_rate != 1:
                     adjusted_size = int(round(args.train_size * size_rate / 32) * 32)
-                    images = F.interpolate(images, size=(adjusted_size, adjusted_size), mode='bilinear',
-                                           align_corners=True)
-                    masks = F.interpolate(masks, size=(adjusted_size, adjusted_size), mode='bilinear',
-                                          align_corners=True)
+                    imgs = F.interpolate(imgs, size=(adjusted_size, adjusted_size), mode='bilinear',
+                                         align_corners=True)
+                    msks = F.interpolate(msks, size=(adjusted_size, adjusted_size), mode='bilinear',
+                                         align_corners=True)
 
                 optimizer.zero_grad()
                 # use amp.autocast
                 with autocast():
-                    pred = model(images)
-                    bce_loss, dice_loss = wbce_wdice(pred, masks)
+                    pred = model(imgs)
+                    bce_loss, dice_loss = wbce_wdice(pred, msks)
                     # calculate total loss
                     loss = (bce_loss + dice_loss).mean()
 
@@ -83,7 +85,7 @@ def train(model, trainset_loader, args):
         scheduler.step(mean_dice)
         # save the best model weights args if cur mdice better than ever before
         if mean_dice > best_mdice:
-            # visualized the pred
+            # visualize the pred
             pred_images = tvu.make_grid(pred, normalize=False, scale_each=True)
             logger.add_image('{}/preds/'.format(epoch), pred_images, epoch)
             best_mdice = mean_dice

@@ -33,10 +33,10 @@ class GCN(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        h = self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1)
-        h = h - x
-        h = self.relu(self.conv2(h))
-        return h
+        a = self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1)
+        a = a - x
+        a = self.relu(self.conv2(a))
+        return a
 
 
 class FeatureAggregation(nn.Module):
@@ -58,21 +58,21 @@ class FeatureAggregation(nn.Module):
         t1 = x1
 
         # Construct projection matrix
-        x_state_reshaped = self.conv_state(x1).view(b, self.num_s, -1)
         x_proj = self.conv_proj(x1)
         x2 = F.softmax(x2, dim=1)[:, 1, :, :].unsqueeze(1)
         x_mask = x_proj * x2
         x_anchor = self.priors(x_mask)[:, :, 1:-1, 1:-1].reshape(b, self.num_s, -1)
         x_proj_reshaped = torch.matmul(x_anchor.permute(0, 2, 1), x_proj.reshape(b, self.num_s, -1))
-        x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)
+        x_proj_reshaped = F.softmax(x_proj_reshaped, dim=1)  # project
         x_rproj_reshaped = x_proj_reshaped
 
         # Project and graph reason
-        x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))
-        x_b_rel = self.gcn(x_b_state)
+        x_state_reshaped = self.conv_state(x1).view(b, self.num_s, -1)
+        x_b_state = torch.matmul(x_state_reshaped, x_proj_reshaped.permute(0, 2, 1))  # BG
+        x_b_rel = self.gcn(x_b_state)  # BG hat
 
         # Reproject
-        x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)
+        x_state_reshaped = torch.matmul(x_b_rel, x_rproj_reshaped)  # BG hat * PT
         x_state = x_state_reshaped.view(b, self.num_s, h, w)
         out = t1 + self.conv_extend(x_state)
         return out
