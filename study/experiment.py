@@ -356,20 +356,6 @@ def calc_model_complexity():
     print('ChocolateNet\'s flops = {} and its params = {}'.format(flops, params))
 
 
-def calc_fps(n):
-    model = ChocolateNet().cuda()
-    start_time = time.perf_counter()
-
-    for i in range(n):
-        x = torch.randn(16, 3, 352, 352).cuda()
-        model.forward(x)
-
-    end_time = time.perf_counter()
-    total_time = end_time - start_time
-    fps = n / total_time
-    print('ChocolateNet\'s fps = {:2f}'.format(fps))
-
-
 class BAModule(nn.Module):
 
     def __init__(self):
@@ -770,13 +756,6 @@ def find_goal():
     bkai = [0.66, 0.902]
     print('BKAI best mdice {}'.format(max(bkai)))
 
-    # BKAI: 0.902
-    # CVC-300: 0.932
-    # CVC-ClinicDB: 0.947
-    # CVC-ColonDB: 0.935
-    # ETIS: 0.935
-    # Kvasir: 0.959
-
 
 def retest_failed_cases():
     parser = argparse.ArgumentParser()
@@ -1061,6 +1040,59 @@ def arr_imgs():
     plt.show()
 
 
+def heat_map():
+    # 假设输入特征图 (C=3, H=5, W=5)
+    input_feature = np.random.randn(3, 5, 5)
+    # 通道注意力权重 (C=3)
+    channel_att = np.array([0.8, 0.3, 0.6])
+    # 空间注意力矩阵 (H=5, W=5)
+    spatial_att = np.random.rand(5, 5)
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+
+    # 1. 输入特征图
+    for i in range(3):
+        axes[0].imshow(input_feature[i], cmap='viridis', aspect='auto')
+    axes[0].set_title("Input Feature")
+
+    # 2. 通道注意力
+    axes[1].bar(range(3), channel_att, color=['red', 'green', 'blue'])
+    axes[1].set_title("Channel Attention")
+
+    # 3. 空间注意力
+    axes[2].imshow(spatial_att, cmap='hot', interpolation='nearest', alpha=0.5)
+    axes[2].set_title("Spatial Attention")
+
+    plt.show()
+
+
+def calc_fps():
+    # 初始化
+    model = ChocolateNet()
+    model.load_state_dict(torch.load('./snapshot/ChocolateNet.pth'))
+    model.eval()
+    model.cuda()
+    warmup_frames = 100  # 预热轮次
+    test_frames = 1000
+    dummy_input = torch.randn(1, 3, 352, 352).cuda()  # 模拟输入尺寸
+
+    # 预热（避免冷启动误差）
+    for _ in range(warmup_frames):
+        _ = model(dummy_input)
+    torch.cuda.synchronize()  # 等待CUDA内核完成
+
+    # 正式测试
+    start_time = time.perf_counter()
+    for _ in range(test_frames):
+        with torch.no_grad():  # 禁用梯度计算
+            _ = model(dummy_input)
+    torch.cuda.synchronize()
+    elapsed = time.perf_counter() - start_time
+
+    fps = test_frames / elapsed
+    print(f"Average FPS: {fps:.2f}, Latency: {1000/fps:.2f}ms")
+
+
 if __name__ == '__main__':
     # progress_bar()
 
@@ -1078,7 +1110,7 @@ if __name__ == '__main__':
     #             'all': [3248, 1434, 849, 658, 307]}
     # draw_graph(sum_dict)
 
-    calc_model_complexity()
+    # calc_model_complexity()
     # ChocolateNet's flops = 9.9 GMac and its params = 24.98 M
     #  PolypPVt's flops = 10.1 GMac and its params = 25.11 M
     # PraNet's flops = 13.15 GMac and its params = 32.55 M
@@ -1087,9 +1119,6 @@ if __name__ == '__main__':
     # HarDNet-MSEG's flops = 11.39 GMac and its params = 18.45 M
     # ACSNet's flops = 39.44 GMac and its params = 29.45 M
     # MSNet's flops = 17.02 GMac and its params = 29.74 M
-
-
-    # calc_fps(10)
 
     # test_boundary_attention()
 
@@ -1120,3 +1149,7 @@ if __name__ == '__main__':
     # Kvasir {'mDice': 0.9221999999999999, 'mIoU': 0.8737999999999999, 'wFm': 0.9176, 'Sm': 0.9286, 'meanEm': 0.9628, 'maxEm': 0.967, 'MAE': 0.021800000000000003}
 
     # arr_imgs()
+
+    # heat_map()
+
+    calc_fps()
